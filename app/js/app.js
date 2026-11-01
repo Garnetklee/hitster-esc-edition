@@ -20,7 +20,8 @@ let BY_ID = new Map();
 let COUNTRY_NAMES = new Map(); // ISO -> deutscher Name
 let state = null; // laufendes Spiel
 let stealPick = null; // Index des Spielers, der gerade eine Lücke zum Klauen wählt
-let playing = false;
+let audioStatus = 'idle'; // idle | loading | playing | paused
+let loadAttempt = 1;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -362,10 +363,12 @@ function startTurn() {
 
 function loadAudio(tryAutoplay) {
   const song = S(state.cur.songId);
-  playing = false;
-  if (!song.youtube_id) { YTP.stop(); return; }
+  loadAttempt = 1;
+  if (!song.youtube_id) { setAudioStatus('idle'); YTP.stop(); return; }
   const userActive = navigator.userActivation ? navigator.userActivation.hasBeenActive : true;
-  YTP.load(song.youtube_id, song.start_sek || 0, tryAutoplay && userActive && state.cur.phase === 'listen');
+  const autoplay = tryAutoplay && userActive && state.cur.phase === 'listen';
+  setAudioStatus(autoplay ? 'loading' : 'idle');
+  YTP.load(song.youtube_id, song.start_sek || 0, autoplay);
 }
 
 function replaceSong(reason) {
@@ -724,6 +727,10 @@ function renderControls() {
       <button class="btn" id="btn-restart" ${hasAudio ? '' : 'disabled'}>↺ Neu ab Start</button>
     </div>
     ${limitBar}
+    <div class="stall" id="stall" ${c.stalled ? '' : 'hidden'}>
+      <span>Das Lied lädt gerade nicht. Vielleicht läuft Werbung oder die Verbindung hängt.</span>
+      <button class="btn small" id="btn-other-song">Anderes Lied (gratis)</button>
+    </div>
     <div class="row action-row">
       <button class="btn ghost" id="btn-skip" ${p.tokens >= 1 ? '' : 'disabled'}>Überspringen <small>(1 Token)</small></button>
       ${R.steal ? `<button class="btn ghost" id="btn-steal" ${canSteal ? '' : 'disabled'}>Klauen…</button>` : ''}
@@ -733,14 +740,17 @@ function renderControls() {
   $('#btn-play').onclick = () => {
     if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
     releaseLimit();
+    if (audioStatus === 'idle' || audioStatus === 'paused') setAudioStatus('loading');
     YTP.toggle();
   };
   $('#btn-restart').onclick = () => {
     if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
     releaseLimit();
+    setAudioStatus('loading');
     YTP.restart();
   };
   $('#btn-skip').onclick = skip;
+  $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
   if (R.steal) $('#btn-steal').onclick = openSteal;
   if (R.exact > 0) $('#inp-exact').addEventListener('input', (e) => { c.exact = e.target.value; save(); updateGuessPreview(); });
   $('#btn-reveal').onclick = reveal;
@@ -997,8 +1007,16 @@ const limitText = (c) => (c.timeUp ? '⏱ Zeit um' : `⏱ ${Math.ceil(Math.max(0
 
 function playLabel() {
   const c = state && state.cur;
-  if (c && limitActive(c) && c.timeUp) return '▶ Weiterhören (gratis)';
-  return playing ? '⏸ Pause' : '▶ Abspielen';
+  if (c && limitActive(c) && c.timeUp && audioStatus !== 'playing') return '▶ Weiterhören (gratis)';
+  if (audioStatus === 'loading') return `<span class="spin"></span> Lädt …${loadAttempt > 1 ? ` <small>(Versuch ${loadAttempt})</small>` : ''}`;
+  if (audioStatus === 'playing') return '<span class="eq"><i></i><i></i><i></i></span> Läuft · Pause';
+  return '▶ Abspielen';
+}
+
+function setAudioStatus(st) {
+  audioStatus = st;
+  const b = $('#btn-play');
+  if (b) b.innerHTML = playLabel();
 }
 
 /** Nach Ablauf gibt ein Klick auf Abspielen das Lied frei, danach kein Limit mehr. */
@@ -1024,10 +1042,22 @@ function limitTick() {
     const box = $('.limit');
     if (box) box.classList.add('up');
     const btn = $('#btn-play');
-    if (btn) btn.textContent = playLabel();
+    if (btn) btn.innerHTML = playLabel();
   }
   const fill = $('#limit-fill');
   if (fill) { fill.style.width = `${limitPercent(c)}%`; $('#limit-text').textContent = limitText(c); }
+}
+
+/** Das Lied hängt: nichts automatisch überspringen, die Spieler entscheiden. */
+function handleStall(st, cur) {
+  if (!state || !state.cur || state.cur.phase !== 'listen') return;
+  const song = S(state.cur.songId);
+  if (!song || !cur || cur.videoId !== song.youtube_id) return;
+  logError(song, `timeout (Status ${st})`);
+  state.cur.stalled = true;
+  save();
+  const box = $('#stall');
+  if (box) box.hidden = false;
 }
 
 /* ------------------------------------------------------------------ Player-Ereignisse */
@@ -1035,9 +1065,16 @@ function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
   YTP.initPlayer({
     onState(st) {
-      playing = st === YTP.State.PLAYING || st === YTP.State.BUFFERING;
-      const b = $('#btn-play');
-      if (b) b.textContent = playLabel();
+      if (st === YTP.State.PLAYING) setAudioStatus('playing');
+      else if (st === YTP.State.BUFFERING) setAudioStatus('loading');
+      else if (st === YTP.State.PAUSED) setAudioStatus('paused');
+      else if (st === YTP.State.ENDED || st === YTP.State.CUED) setAudioStatus('idle');
+      if (st === YTP.State.PLAYING && state && state.cur && state.cur.stalled) {
+        state.cur.stalled = false;
+        save();
+        const box = $('#stall');
+        if (box) box.hidden = true;
+      }
     },
     onError(code, cur) {
       if (!state || !state.cur) return;
@@ -1047,7 +1084,9 @@ function initAudio() {
       console.warn('YouTube-Fehler', code, song.id, song.youtube_id);
       if (state.cur.phase === 'listen') replaceSong(`Video nicht abspielbar (Fehler ${code}) – neues Lied.`);
     },
-    onBlocked() { toast('Tippe auf „▶ Abspielen“, um das Lied zu starten.'); },
+    onStalled: handleStall,
+    onRetry(attempt) { loadAttempt = attempt; setAudioStatus('loading'); },
+    onBlocked() { setAudioStatus('idle'); toast('Tippe auf „▶ Abspielen“, um das Lied zu starten.'); },
     onApiFail() { toast('YouTube-Player konnte nicht geladen werden (offline?).', 5000); },
   });
 }
@@ -1127,6 +1166,7 @@ window.ESC = {
   next: () => nextTurn(),
   skip: () => skip(),
   score: (p) => score(p),
+  stall: (st, cur) => handleStall(st, cur),
   matchText,
   render: () => render(),
   errors: readErrors,

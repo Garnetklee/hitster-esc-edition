@@ -383,6 +383,15 @@ body.on-setup .topbar { position: static; background: none; backdrop-filter: non
 
 /* Eigene Karte neben der Lösung */
 .reveal-card { display: flex; justify-content: center; align-items: stretch; gap: 10px; }
+.btn.play { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.spin { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 3px solid rgba(34,230,255,.25); border-top-color: var(--cyan); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.eq { display: inline-flex; align-items: flex-end; gap: 2px; width: 18px; height: 16px; flex: none; }
+.eq i { flex: 1; height: 100%; border-radius: 2px; background: var(--cyan); transform-origin: bottom; animation: eq .9s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -.5s; }
+.eq i:nth-child(3) { animation-delay: -.25s; }
+@keyframes eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.stall { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(255,215,106,.6); background: rgba(255,215,106,.1); color: #ffd76a; font-size: .9rem; }
 .line.near { color: #ffd76a; }
 .btn.yt { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: var(--text); }
 

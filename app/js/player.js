@@ -1,6 +1,8 @@
 // Unsichtbarer YouTube-IFrame-Player (Prinzip wie im SongSeeker)
 
-const TIMEOUT_MS = 15000;
+// Wartezeit je Versuch: normale Videos starten in unter 3 s, danach neu laden, nach 12 s Hinweis
+const RETRY_STEPS_MS = [3000, 4000, 5000];
+let retries = 0;
 let player = null;
 let ready = false;
 let handlers = {};
@@ -45,15 +47,27 @@ export function initPlayer(h) {
 
 function clearTimer() { if (timer) { clearTimeout(timer); timer = null; } }
 
-function armTimer() {
+function armTimer(resetRetries = true) {
   clearTimer();
+  if (resetRetries) retries = 0;
   timer = setTimeout(() => {
     timer = null;
+    // Im Hintergrund lädt der Browser oft nicht weiter, das ist kein Fehler
+    if (document.hidden) { armTimer(false); return; }
     const st = state();
     if (st === State.PLAYING || st === State.PAUSED || st === State.ENDED) return;
-    if (userRequested || st === State.BUFFERING) handlers.onError && handlers.onError('timeout', current);
-    else handlers.onBlocked && handlers.onBlocked();
-  }, TIMEOUT_MS);
+    if (!userRequested && st !== State.BUFFERING) { handlers.onBlocked && handlers.onBlocked(); return; }
+    // YouTube bleibt beim ersten Laden manchmal dauerhaft hängen, erneutes Laden löst das oft
+    if (retries < RETRY_STEPS_MS.length - 1) {
+      retries += 1;
+      handlers.onRetry && handlers.onRetry(retries + 1);
+      const at = Math.max(current.start, (player.getCurrentTime && player.getCurrentTime()) || 0);
+      player.loadVideoById({ videoId: current.videoId, startSeconds: at });
+      armTimer(false);
+      return;
+    }
+    handlers.onStalled && handlers.onStalled(st, current);
+  }, RETRY_STEPS_MS[retries]);
 }
 
 export const isReady = () => ready;
