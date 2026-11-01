@@ -83,6 +83,7 @@ export function migrateState(saved) {
     delete set.modes;
   }
   set.rules = { ...DEFAULT_RULES, ...set.rules };
+  saved.first = saved.first ?? 0;
   for (const p of saved.players) p.bonus = p.bonus || 0;
   const c = saved.cur;
   if (c) {

@@ -17,9 +17,11 @@
     <div id="yt-player"></div>
     <div class="yt-mask yt-mask-left"></div>
     <div class="yt-mask yt-mask-top"></div>
+    <div class="yt-mask yt-mask-right"></div>
+    <div class="yt-mask yt-mask-bottom"></div>
   </div>
   <div id="yt-bar" class="yt-bar" hidden>
-    <span>Tippe im Video unten rechts auf „Überspringen“. Das Fenster schließt sich, sobald das Lied startet.</span>
+    <span>Sobald im Ausschnitt „Überspringen“ erscheint, tippe darauf. Das Fenster schließt sich, wenn das Lied startet.</span>
     <div class="row">
       <button class="btn small ghost" id="btn-unmask-player">Ganzes Bild (verrät das Lied)</button>
       <button class="btn small" id="btn-hide-player">Schließen</button>
@@ -208,7 +210,8 @@
         <button class="btn primary" value="close">Schließen</button>
       </div>
       <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
-        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Überspringen kostet 1 Token, maximal 5 Tokens.</p>
+        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Überspringen kostet 1 Token, maximal 5 Tokens.
+        Erreicht jemand das Ziel, spielen die übrigen Spieler die Runde noch zu Ende, damit alle gleich oft dran waren.</p>
       <p class="muted small">Bonus: Interpret, Titel, Land, Platzierung und das genaue Jahr bringen je nach Modus Bonuspunkte. Sie werden zu
         Tokens, zählen nur (★, entscheidet bei Gleichstand) oder werden in Bonuskarten umgewandelt, die zum Ziel zählen.
         Das genaue Jahr zählt nur, wenn die Karte richtig liegt. Beim Auflösen zeigt die linke Karte deine Eingaben in Grün (richtig),

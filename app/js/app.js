@@ -335,6 +335,7 @@ function startGame() {
     if (s) p.timeline.push(s.id);
   }
   state.active = Math.floor(Math.random() * state.players.length);
+  state.first = state.active;
   showScreen('game');
   startTurn();
 }
@@ -386,7 +387,8 @@ function setGap(g) {
     c.gap = g;
     if (rules().place === 'neighbor') { c.place.neighborId = null; c.place.guess = null; }
   }
-  save(); render(); scrollToGap(g);
+  save(); render();
+  if (g !== null) scrollToGap(g);
 }
 
 function placeNeighbor() {
@@ -503,6 +505,9 @@ function reveal() {
   if (correct) scrollToCard(song.id);
 }
 
+const nextPlayer = () => (state.active + 1) % state.players.length;
+const targetReached = () => state.players.some((p) => score(p) >= state.settings.target);
+
 /** Bonuspunkte verbuchen. Gibt zurück, was tatsächlich dazukam. */
 function applyBonus(p, pts) {
   const R = rules();
@@ -518,10 +523,10 @@ function applyBonus(p, pts) {
 }
 
 function nextTurn() {
-  const target = state.settings.target;
-  if (state.players.some((p) => score(p) >= target)) { endGame(); return; }
-  state.active = (state.active + 1) % state.players.length;
-  state.round += state.active === 0 ? 1 : 0;
+  const next = nextPlayer();
+  if (next === state.first && targetReached()) { endGame(); return; }
+  state.active = next;
+  state.round += next === state.first ? 1 : 0;
   startTurn();
 }
 
@@ -643,7 +648,7 @@ function render() {
     </button>`).join('');
   $$('#scoreboard .score').forEach((b) => b.addEventListener('click', () => showTimeline(+b.dataset.i)));
 
-  $('#turn-banner').innerHTML = `<span class="tb-name">${esc(p.name)}</span> ist dran <span class="muted small">· Runde ${state.round}${DEV ? ' · Dev-Modus' : ''}</span>`;
+  $('#turn-banner').innerHTML = `<span class="tb-name">${esc(p.name)}</span> ist dran <span class="muted small">· Runde ${state.round}${DEV ? ' · Dev-Modus' : ''}</span>${targetReached() ? ' <span class="last-round">Letzte Runde</span>' : ''}`;
 
   const sb = $('#steal-banner');
   if (stealPick !== null) {
@@ -706,7 +711,11 @@ function renderDeck() {
       <div class="deck-hint">Ziehe die Karte an die richtige Stelle deiner Zeitleiste – oder tippe auf eine Lücke <b>+</b>.${audioNote}</div>`;
     $$('[data-drag]', d).forEach(bindDrag);
   } else {
-    d.innerHTML = `<div class="deck-hint">${c.steal ? 'Karte liegt fest (es wird geklaut).' : 'Karte liegt. Du kannst sie noch verschieben.'}${audioNote}</div>`;
+    d.innerHTML = c.steal
+      ? `<div class="deck-hint">Karte liegt fest (es wird geklaut).${audioNote}</div>`
+      : `<button type="button" class="deck-slot deck-return" id="deck-return"><span>↩</span><small>Zurücklegen</small></button>
+         <div class="deck-hint">Karte liegt. Du kannst sie verschieben oder hierher zurückziehen.${audioNote}</div>`;
+    if (!c.steal) $('#deck-return').onclick = () => setGap(null);
   }
 }
 
@@ -880,15 +889,15 @@ function renderReveal() {
   if (r.gain.tokens) lines.push(`<div class="line ok">+${r.gain.tokens} Token für ${esc(p.name)}</div>`);
   else if (r.pts && R.bonus !== 'tokens') lines.push(`<div class="line ok">★ +${r.pts} Bonus für ${esc(p.name)}</div>`);
   if (r.gain.cards) lines.push(`<div class="line ok big-line">+${r.gain.cards} Bonuskarte für ${esc(p.name)}!</div>`);
-  const someoneWon = state.players.some((pl) => score(pl) >= state.settings.target);
-  const nextName = state.players[(state.active + 1) % state.players.length].name;
+  const gameOver = targetReached() && nextPlayer() === state.first;
+  const nextName = state.players[nextPlayer()].name;
   const hasOwn = r.guess && (R.exact > 0 || R.country !== 'off' || R.place !== 'off' || R.artist || R.title);
   const yt = song.youtube_id ? youtubeLink(song.youtube_id) : null;
   el.hidden = false;
   el.innerHTML = `<div class="reveal-card ${hasOwn ? '' : 'solo'}">${hasOwn ? ownCardHTML(r.guess) : ''}${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
     <div class="reveal-info">${lines.join('')}
       ${yt ? `<div class="row"><a class="btn yt" id="btn-yt" href="${esc(yt.href)}"${yt.target}>▶ Ganzes Video auf YouTube</a></div>` : ''}
-      <div class="row"><button class="btn primary big" id="btn-next">${someoneWon ? 'Zur Siegerehrung' : `Weiter: ${esc(nextName)}`}</button></div>
+      <div class="row"><button class="btn primary big" id="btn-next">${gameOver ? 'Zur Siegerehrung' : `Weiter: ${esc(nextName)}`}</button></div>
     </div>`;
   $('#btn-next').onclick = nextTurn;
   if (yt) $('#btn-yt').addEventListener('click', () => YTP.pause());
@@ -957,7 +966,11 @@ function updateDropTarget() {
   const tlEl = $('#timeline');
   const r = tlEl.getBoundingClientRect();
   let best = null;
-  if (drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
+  const slot = $('#deck .deck-slot');
+  const sr = slot ? slot.getBoundingClientRect() : null;
+  drag.overDeck = !!sr && drag.x > sr.left - 12 && drag.x < sr.right + 12 && drag.y > sr.top - 12 && drag.y < sr.bottom + 12;
+  if (slot) slot.classList.toggle('hover', drag.overDeck);
+  if (!drag.overDeck && drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
     let bestD = Infinity;
     for (const g of $$('.gap', tlEl)) {
       const gr = g.getBoundingClientRect();
@@ -975,7 +988,7 @@ function autoScroll() {
   if (!drag) return;
   const tlEl = $('#timeline');
   const r = tlEl.getBoundingClientRect();
-  if (drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
+  if (!drag.overDeck && drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
     const edge = Math.min(90, r.width / 4);
     const speed = (depth) => 3 + 9 * Math.min(1, depth / edge);
     if (drag.x < r.left + edge) tlEl.scrollLeft -= speed(r.left + edge - drag.x);
@@ -996,13 +1009,15 @@ function cleanupDrag() {
   }
   document.body.classList.remove('dragging');
   $$('#timeline .gap.hover').forEach((g) => g.classList.remove('hover'));
+  $$('#deck .deck-slot.hover').forEach((s) => s.classList.remove('hover'));
 }
 
 function onDragEnd() {
   const d = drag;
   cleanupDrag();
   drag = null;
-  if (d && d.moved && d.gap !== null) setGap(d.gap);
+  if (d && d.moved && d.overDeck) { if (state.cur.gap !== null) setGap(null); }
+  else if (d && d.moved && d.gap !== null) setGap(d.gap);
   else if (d && !d.moved && state.cur.gap === null) toast('Ziehe die Karte in die Zeitleiste oder tippe auf eine Lücke.');
 }
 function onDragCancel() { cleanupDrag(); drag = null; }
@@ -1106,8 +1121,8 @@ function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
   YTP.initPlayer({
     onState(st) {
-      // Das Lied startet: Player sofort wieder verstecken, damit nichts verraten wird
-      if (playerShown && st === YTP.State.PLAYING && !shownWhilePlaying) hidePlayer();
+      // Werbung vorbei, das Lied lädt oder startet: Player sofort verstecken, damit nichts verraten wird
+      if (playerShown && !shownWhilePlaying && (st === YTP.State.PLAYING || st === YTP.State.BUFFERING)) hidePlayer();
       if (st !== YTP.State.PLAYING) shownWhilePlaying = false;
       if (st === YTP.State.PLAYING) setAudioStatus('playing');
       else if (st === YTP.State.BUFFERING) setAudioStatus('loading');
