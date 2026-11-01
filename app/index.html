@@ -62,7 +62,7 @@
           </div>
           <label class="field">
             <span>Ziel: Karten in der Zeitleiste</span>
-            <input type="number" id="inp-target" min="3" max="30" value="10" inputmode="numeric">
+            <input type="number" id="inp-target" min="3" max="30" value="10" inputmode="numeric" enterkeyhint="done">
           </label>
         </div>
 
@@ -75,7 +75,7 @@
             <label class="chip-radio"><input type="radio" name="pool" value="top3"><span>Top 3</span></label>
             <label class="chip-radio"><input type="radio" name="pool" value="sieger"><span>Nur Sieger</span></label>
             <label class="chip-radio"><input type="radio" name="pool" value="nul"><span>„Nul points“</span></label>
-            <label class="chip-radio" id="topn-label"><input type="radio" name="pool" value="topn"><span>Top-<input type="number" id="inp-topn" value="100" min="5" max="2000" step="5" aria-label="N"> bekannteste</span></label>
+            <label class="chip-radio" id="topn-label"><input type="radio" name="pool" value="topn"><span>Top-<input type="number" id="inp-topn" value="100" min="5" max="2000" step="5" aria-label="N" enterkeyhint="done"> bekannteste</span></label>
           </div>
           <div class="muted small" id="topn-hint" hidden>Noch keine Popularitätsdaten (pop_rang) vorhanden.</div>
         </div>
@@ -90,8 +90,8 @@
 
           <h3>Zeitraum</h3>
           <div class="row years">
-            <label class="field inline"><span>von</span><input type="number" id="inp-from" inputmode="numeric"></label>
-            <label class="field inline"><span>bis</span><input type="number" id="inp-to" inputmode="numeric"></label>
+            <label class="field inline"><span>von</span><input type="number" id="inp-from" inputmode="numeric" enterkeyhint="done"></label>
+            <label class="field inline"><span>bis</span><input type="number" id="inp-to" inputmode="numeric" enterkeyhint="done"></label>
             <label class="switch"><input type="checkbox" id="chk-2020" checked><span class="slider"></span><span>2020 (abgesagt) einbeziehen</span></label>
           </div>
 
@@ -103,6 +103,11 @@
             <button type="button" class="btn small" data-quick="big5">Big 5</button>
           </div>
           <div id="country-chips" class="chips"></div>
+
+          <h3>Interpret und Titel raten</h3>
+          <label class="switch"><input type="checkbox" id="chk-artist"><span class="slider"></span><span>Interpret raten <small class="muted">(+1 Bonus)</small></span></label>
+          <label class="switch"><input type="checkbox" id="chk-title"><span class="slider"></span><span>Titel raten <small class="muted">(+1 Bonus)</small></span></label>
+          <div class="muted small hint">Kleine Tippfehler zählen als richtig, teilweise Richtiges wird gelb markiert und bringt nichts.</div>
 
           <h3>Land raten</h3>
           <div class="radio-grid compact">
@@ -193,9 +198,10 @@
       </div>
       <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
         (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Überspringen kostet 1 Token, maximal 5 Tokens.</p>
-      <p class="muted small">Bonus: Land raten, Platzierung und das genaue Jahr bringen je nach Modus Bonuspunkte. Sie werden zu
+      <p class="muted small">Bonus: Interpret, Titel, Land, Platzierung und das genaue Jahr bringen je nach Modus Bonuspunkte. Sie werden zu
         Tokens, zählen nur (★, entscheidet bei Gleichstand) oder werden in Bonuskarten umgewandelt, die zum Ziel zählen.
-        Das genaue Jahr zählt nur, wenn die Karte richtig liegt.</p>
+        Das genaue Jahr zählt nur, wenn die Karte richtig liegt. Beim Auflösen zeigt „Dein Tipp“ jede Eingabe in Grün (richtig),
+        Gelb (fast richtig) oder Rot (falsch).</p>
       <p class="muted small">Klauen (nur wenn eingeschaltet): Ein anderer Spieler setzt 1 Token auf eine andere Lücke. Liegt der
         aktive Spieler falsch und der Klauende richtig, bekommt dieser die Karte.</p>
     </form>

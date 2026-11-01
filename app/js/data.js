@@ -127,6 +127,39 @@ export function matchCountry(text, names) {
   return alias && names.has(alias) ? alias : null;
 }
 
+const textWords = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/ß/g, 'ss').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+const withoutBrackets = (t) => String(t).replace(/\([^)]*\)|\[[^\]]*\]/g, ' ');
+
+const FILL_WORDS = new Set(['the', 'and', 'for', 'you', 'der', 'die', 'das', 'und', 'ein', 'eine', 'les', 'los', 'las', 'una', 'des', 'del']);
+
+function levenshtein(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/** Vergleicht einen Freitext-Tipp mit der Lösung: 'ok', 'near' (teilweise) oder 'bad'; null ohne Tipp. */
+export function matchText(tip, answer) {
+  const t = textWords(withoutBrackets(tip));
+  if (!t.length) return null;
+  let a = textWords(withoutBrackets(answer));
+  if (!a.length) a = textWords(answer);
+  const joined = a.join('');
+  const tolerance = joined.length <= 3 ? 0 : joined.length <= 7 ? 1 : 2;
+  if (levenshtein(t.join(''), joined) <= tolerance) return 'ok';
+  const isKey = (w) => w.length >= 3 && !FILL_WORDS.has(w);
+  const keys = a.filter(isKey);
+  const partial = t.filter(isKey).some((w) => keys.some((k) => levenshtein(w, k) <= (k.length <= 4 ? 0 : 1)));
+  return partial ? 'near' : 'bad';
+}
+
 /** Text „Platz X von Y“ inkl. Sonderfälle. */
 export function placementText(s) {
   const sf = s.sonderfall;

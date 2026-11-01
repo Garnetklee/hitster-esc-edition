@@ -1,7 +1,7 @@
 // Hitster ESC Edition – Hauptmodul (UI + Spielablauf)
 import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
-  QUICK_COUNTRIES, hasVideo, isCancelled, freePlacePoints, matchCountry,
+  QUICK_COUNTRIES, hasVideo, isCancelled, freePlacePoints, matchCountry, matchText,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -77,7 +77,10 @@ function cardHTML(s, cls = '') {
     <div class="c-place">${esc(placementText(s))}${s.punkte !== null ? ` · ${s.punkte} P.` : ''}</div>
   </div>`;
 }
-const mysteryHTML = (cls = '') => `<div class="card mystery ${cls}" data-drag="1" aria-label="Verdeckte Karte"><span>?</span></div>`;
+function mysteryHTML(cls = '') {
+  const preview = state && state.cur ? previewHTML(guessFields(state.cur)) : '';
+  return `<div class="card mystery ${cls} ${preview ? 'has-guess' : ''}" data-drag="1" aria-label="Verdeckte Karte"><span class="m-q">?</span><div class="guess-preview">${preview}</div></div>`;
+}
 
 /* ------------------------------------------------------------------ Setup */
 const setup = {
@@ -113,6 +116,8 @@ function readRules() {
     country: radioVal('r-country') || 'off',
     place: radioVal('r-place') || 'off',
     exact: parseInt(radioVal('r-exact'), 10) || 0,
+    artist: $('#chk-artist').checked,
+    title: $('#chk-title').checked,
     bonus: radioVal('r-bonus') || 'tokens',
     convertAt: parseInt(radioVal('r-convert'), 10) || 5,
     timeLimit: parseInt(radioVal('r-limit'), 10) || 0,
@@ -124,6 +129,8 @@ function writeRules(r) {
   setRadio('r-country', r.country);
   setRadio('r-place', r.place);
   setRadio('r-exact', r.exact);
+  $('#chk-artist').checked = !!r.artist;
+  $('#chk-title').checked = !!r.title;
   setRadio('r-bonus', r.bonus);
   setRadio('r-convert', r.convertAt);
   setRadio('r-limit', r.timeLimit);
@@ -160,7 +167,7 @@ function applyPreset(id) {
 function renderPlayerInputs() {
   const box = $('#player-list');
   box.innerHTML = setup.names.map((n, i) =>
-    `<label class="player-input"><span class="pnum">${i + 1}</span><input type="text" maxlength="16" value="${esc(n)}" data-i="${i}" aria-label="Name Spieler ${i + 1}"></label>`).join('');
+    `<label class="player-input"><span class="pnum">${i + 1}</span><input type="text" maxlength="16" value="${esc(n)}" data-i="${i}" aria-label="Name Spieler ${i + 1}" enterkeyhint="done"></label>`).join('');
   $$('input', box).forEach((inp) => inp.addEventListener('input', () => { setup.names[+inp.dataset.i] = inp.value; updateCount(); }));
   $('#btn-add-player').disabled = setup.names.length >= 8;
   $('#btn-remove-player').disabled = setup.names.length <= 2;
@@ -303,6 +310,8 @@ function newTurn(song) {
     country: { options: shuffle([song.land_iso, ...others]), guess: null, text: '' },
     place: { neighborId: null, guess: null, free: '', hf: false },
     exact: '',
+    artistTip: '',
+    titleTip: '',
     heard: 0,
     timeUp: false,
     released: false,
@@ -456,8 +465,24 @@ function reveal() {
   }
   const exactYear = parseInt(c.exact, 10);
   const exactOk = R.exact > 0 && !isNaN(exactYear) ? correct && exactYear === song.jahr : null;
-  const pts = (countryOk ? 1 : 0) + placePts + (exactOk ? R.exact : 0);
+  const artistState = R.artist ? matchText(c.artistTip, song.interpret) : null;
+  const titleState = R.title ? matchText(c.titleTip, song.titel) : null;
+  const pts = (countryOk ? 1 : 0) + placePts + (exactOk ? R.exact : 0)
+    + (artistState === 'ok' ? 1 : 0) + (titleState === 'ok' ? 1 : 0);
   const gain = applyBonus(p, pts);
+  const tips = guessFields(c);
+  const guess = {};
+  if (!isNaN(exactYear) && R.exact > 0) {
+    const off = Math.abs(exactYear - song.jahr);
+    guess.year = { tip: tips.year, state: off === 0 ? (correct ? 'ok' : 'near') : off <= 2 ? 'near' : 'bad' };
+  }
+  if (countryOk !== null) guess.land = { tip: tips.land, state: countryOk ? 'ok' : 'bad' };
+  if (artistState) guess.artist = { tip: tips.artist, state: artistState };
+  if (titleState) guess.title = { tip: tips.title, state: titleState };
+  if (placeOk !== null) {
+    const near = R.place === 'free' && !c.place.hf && placePts === 1;
+    guess.place = { tip: tips.place, state: near ? 'near' : placeOk ? 'ok' : 'bad' };
+  }
 
   let stolenBy = null;
   if (correct) {
@@ -468,7 +493,7 @@ function reveal() {
     sp.timeline.splice(sortedIndex(stl, song.jahr), 0, song.id);
     stolenBy = c.steal.p;
   }
-  c.result = { correct, stealOk, countryOk, placeOk, placePts, exactOk, pts, gain, stolenBy };
+  c.result = { correct, stealOk, countryOk, placeOk, placePts, exactOk, artistState, titleState, guess, pts, gain, stolenBy };
   c.phase = 'reveal';
   save(); render();
   if (correct) scrollToCard(song.id);
@@ -525,6 +550,67 @@ function showScreen(name) {
 }
 
 const tokensHTML = (n) => `<span class="tok-dots" title="${n} Token">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(Math.max(0, MAX_TOKENS - n))}</span>`;
+
+/** Nur die eigenen Eingaben, egal ob richtig oder falsch. */
+function guessFields(c) {
+  const R = rules();
+  const f = {};
+  if (R.exact > 0 && String(c.exact).trim()) f.year = String(c.exact).trim();
+  if (R.country === 'choice' && c.country.guess) f.land = COUNTRY_NAMES.get(c.country.guess) || c.country.guess;
+  if (R.country === 'free' && c.country.text.trim()) f.land = c.country.text.trim();
+  if (R.artist && c.artistTip.trim()) f.artist = c.artistTip.trim();
+  if (R.title && c.titleTip.trim()) f.title = c.titleTip.trim();
+  if (R.place === 'free') {
+    if (c.place.hf) f.place = 'Im Halbfinale raus';
+    else if (String(c.place.free).trim()) f.place = `Platz ${String(c.place.free).trim()}`;
+  }
+  if (R.place === 'neighbor' && c.place.guess && c.place.neighborId) {
+    const nb = S(c.place.neighborId);
+    f.place = `${c.place.guess === 'besser' ? '▲ Besser' : '▼ Schlechter'} als ${nb ? nb.interpret : 'Nachbar'}`;
+  }
+  return f;
+}
+
+function previewHTML(f) {
+  return [['year', 'c-year'], ['land', 'c-land'], ['artist', 'c-artist'], ['title', 'c-title'], ['place', 'c-place']]
+    .filter(([k]) => f[k]).map(([k, cls]) => `<div class="${cls}">${esc(f[k])}</div>`).join('');
+}
+
+/** Aktualisiert nur die Vorschau, damit das Eingabefeld beim Tippen den Fokus behält. */
+function updateGuessPreview() {
+  const preview = previewHTML(guessFields(state.cur));
+  for (const card of $$('#timeline .card.mystery, #deck .card.mystery')) {
+    $('.guess-preview', card).innerHTML = preview;
+    card.classList.toggle('has-guess', !!preview);
+  }
+}
+
+const GUESS_MARK = { ok: '✓', near: '~', bad: '✕' };
+
+/** Die eigene Karte beim Auflösen: Felder aus den Regeln, farbig nach Bewertung. */
+function ownCardHTML(g, R) {
+  const row = (key, on, cls) => {
+    if (!on) return '';
+    const it = g[key];
+    if (!it) return `<div class="own-row ${cls} g-none">–</div>`;
+    return `<div class="own-row ${cls} g-${it.state}"><i>${GUESS_MARK[it.state]}</i> ${esc(it.tip)}</div>`;
+  };
+  return `<div class="card big own"><div class="own-label">Dein Tipp</div>
+    ${row('year', R.exact > 0, 'c-year')}
+    ${row('land', R.country !== 'off', 'c-land')}
+    ${row('artist', R.artist, 'c-artist')}
+    ${row('title', R.title, 'c-title')}
+    ${row('place', R.place !== 'off', 'c-place')}
+  </div>`;
+}
+
+function youtubeLink(id) {
+  const https = `https://www.youtube.com/watch?v=${id}`;
+  if (/android/i.test(navigator.userAgent)) {
+    return { href: `intent://www.youtube.com/watch?v=${id}#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=${encodeURIComponent(https)};end`, target: '' };
+  }
+  return { href: https, target: ' target="_blank" rel="noopener"' };
+}
 
 function starHTML(p) {
   const R = rules();
@@ -637,7 +723,7 @@ function renderControls() {
     <div class="row action-row">
       <button class="btn ghost" id="btn-skip" ${p.tokens >= 1 ? '' : 'disabled'}>Überspringen <small>(1 Token)</small></button>
       ${R.steal ? `<button class="btn ghost" id="btn-steal" ${canSteal ? '' : 'disabled'}>Klauen…</button>` : ''}
-      ${R.exact > 0 ? `<label class="exact"><span>Genaues Jahr <small>(+${R.exact} Bonus)</small></span><input type="number" id="inp-exact" inputmode="numeric" min="1956" max="2100" placeholder="optional" value="${esc(c.exact)}"></label>` : ''}
+      ${R.exact > 0 ? `<label class="exact"><span>Genaues Jahr <small>(+${R.exact} Bonus)</small></span><input type="number" id="inp-exact" inputmode="numeric" min="1956" max="2100" placeholder="optional" enterkeyhint="done" value="${esc(c.exact)}"></label>` : ''}
       <button class="btn primary big" id="btn-reveal" ${c.gap !== null ? '' : 'disabled'}>Auflösen</button>
     </div>`;
   $('#btn-play').onclick = () => {
@@ -652,7 +738,7 @@ function renderControls() {
   };
   $('#btn-skip').onclick = skip;
   if (R.steal) $('#btn-steal').onclick = openSteal;
-  if (R.exact > 0) $('#inp-exact').addEventListener('input', (e) => { c.exact = e.target.value; save(); });
+  if (R.exact > 0) $('#inp-exact').addEventListener('input', (e) => { c.exact = e.target.value; save(); updateGuessPreview(); });
   $('#btn-reveal').onclick = reveal;
 }
 
@@ -668,7 +754,7 @@ function countryBoxHTML(c, R) {
   }
   const names = [...COUNTRY_NAMES.values()].sort((x, y) => x.localeCompare(y, 'de'));
   return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(${bonusHint()})</small></div>
-    <input type="text" class="free-input" id="inp-country" list="country-list" autocomplete="off" placeholder="Land eingeben" value="${esc(c.country.text)}">
+    <input type="text" class="free-input" id="inp-country" list="country-list" autocomplete="off" enterkeyhint="done" placeholder="Land eingeben" value="${esc(c.country.text)}">
     <datalist id="country-list">${names.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>`;
 }
 
@@ -678,7 +764,7 @@ function placeBoxHTML(c, R) {
     const inner = relRank(song) === null
       ? '<div class="muted small">Für dieses Lied gibt es keine Platzierung – entfällt.</div>'
       : `<div class="free-place">
-          <input type="number" class="free-input" id="inp-place" inputmode="numeric" min="1" max="40" placeholder="Platz im Finale" value="${esc(c.place.free)}" ${c.place.hf ? 'disabled' : ''}>
+          <input type="number" class="free-input" id="inp-place" inputmode="numeric" min="1" max="40" placeholder="Platz im Finale" enterkeyhint="done" value="${esc(c.place.free)}" ${c.place.hf ? 'disabled' : ''}>
           <button type="button" class="opt ${c.place.hf ? 'sel' : ''}" id="btn-hf">Im Halbfinale raus</button>
         </div>`;
     return `<div class="bonus-box"><div class="bonus-q">Platzierung <small class="muted">(exakt +2, bis 2 daneben +1)</small></div>${inner}</div>`;
@@ -702,20 +788,33 @@ function placeBoxHTML(c, R) {
   return `<div class="bonus-box"><div class="bonus-q">Platzierung schätzen <small class="muted">(${bonusHint()})</small></div>${inner}</div>`;
 }
 
+function songBoxHTML(c, R) {
+  const field = (id, label, value) => `<input type="text" class="free-input" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${label}" aria-label="${label}" value="${esc(value)}">`;
+  const parts = [R.artist ? 'Interpret' : '', R.title ? 'Titel' : ''].filter(Boolean).join(' und ');
+  return `<div class="bonus-box"><div class="bonus-q">${parts} raten <small class="muted">(je ${bonusHint()})</small></div>
+    <div class="col song-fields">${R.artist ? field('inp-artist', 'Interpret', c.artistTip) : ''}${R.title ? field('inp-title', 'Titel', c.titleTip) : ''}</div></div>`;
+}
+
 function renderBonus() {
   const c = state.cur;
   const el = $('#bonus');
   const R = rules();
-  if (c.phase !== 'listen' || (R.country === 'off' && R.place === 'off')) { el.innerHTML = ''; return; }
-  el.innerHTML = (R.country !== 'off' ? countryBoxHTML(c, R) : '') + (R.place !== 'off' ? placeBoxHTML(c, R) : '');
-  $$('[data-country]', el).forEach((b) => b.addEventListener('click', () => { c.country.guess = b.dataset.country; save(); renderBonus(); }));
-  $$('[data-place]', el).forEach((b) => b.addEventListener('click', () => { c.place.guess = b.dataset.place; save(); renderBonus(); }));
+  const hasSong = R.artist || R.title;
+  if (c.phase !== 'listen' || (R.country === 'off' && R.place === 'off' && !hasSong)) { el.innerHTML = ''; return; }
+  el.innerHTML = (hasSong ? songBoxHTML(c, R) : '') + (R.country !== 'off' ? countryBoxHTML(c, R) : '') + (R.place !== 'off' ? placeBoxHTML(c, R) : '');
+  const changed = () => { save(); updateGuessPreview(); };
+  $$('[data-country]', el).forEach((b) => b.addEventListener('click', () => { c.country.guess = b.dataset.country; renderBonus(); changed(); }));
+  $$('[data-place]', el).forEach((b) => b.addEventListener('click', () => { c.place.guess = b.dataset.place; renderBonus(); changed(); }));
   const ci = $('#inp-country', el);
-  if (ci) ci.addEventListener('input', () => { c.country.text = ci.value; save(); });
+  if (ci) ci.addEventListener('input', () => { c.country.text = ci.value; changed(); });
   const pi = $('#inp-place', el);
-  if (pi) pi.addEventListener('input', () => { c.place.free = pi.value; save(); });
+  if (pi) pi.addEventListener('input', () => { c.place.free = pi.value; changed(); });
+  const ai = $('#inp-artist', el);
+  if (ai) ai.addEventListener('input', () => { c.artistTip = ai.value; changed(); });
+  const ti = $('#inp-title', el);
+  if (ti) ti.addEventListener('input', () => { c.titleTip = ti.value; changed(); });
   const hf = $('#btn-hf', el);
-  if (hf) hf.addEventListener('click', () => { c.place.hf = !c.place.hf; if (c.place.hf) c.place.free = ''; save(); renderBonus(); });
+  if (hf) hf.addEventListener('click', () => { c.place.hf = !c.place.hf; if (c.place.hf) c.place.free = ''; renderBonus(); changed(); });
 }
 
 function renderReveal() {
@@ -733,26 +832,44 @@ function renderReveal() {
     else lines.push(`<div class="line">${esc(sp.name)} hat beim Klauen ${r.stealOk ? 'auch richtig gelegen – aber der aktive Spieler war schneller.' : 'falsch gelegen.'}</div>`);
   }
   const R = rules();
+  const textLine = (label, tip, st) => {
+    if (!st) return;
+    const word = { ok: 'richtig · +1', near: 'teilweise richtig', bad: 'falsch' }[st];
+    lines.push(`<div class="line ${st}">${label} („${esc(tip.trim())}“): ${word}</div>`);
+  };
+  textLine('Interpret', c.artistTip, r.artistState);
+  textLine('Titel', c.titleTip, r.titleState);
   if (r.countryOk !== null) {
     const typed = R.country === 'free' ? ` („${esc(c.country.text.trim())}“)` : '';
     lines.push(`<div class="line ${r.countryOk ? 'ok' : 'bad'}">Land raten${typed}: ${r.countryOk ? 'richtig' : `falsch, es war ${esc(song.land)}`}</div>`);
   }
   if (r.placeOk !== null) {
     const tip = R.place === 'free' ? ` (Tipp: ${c.place.hf ? 'Halbfinal-Aus' : `Platz ${esc(c.place.free)}`})` : '';
-    lines.push(`<div class="line ${r.placeOk ? 'ok' : 'bad'}">Platzierung${tip}: ${r.placeOk ? 'richtig' : 'falsch'}${r.placePts ? ` · +${r.placePts}` : ''}</div>`);
+    const st = r.guess && r.guess.place ? r.guess.place.state : (r.placeOk ? 'ok' : 'bad');
+    const word = { ok: 'richtig', near: 'fast richtig', bad: 'falsch' }[st];
+    lines.push(`<div class="line ${st}">Platzierung${tip}: ${word}${r.placePts ? ` · +${r.placePts}` : ''}</div>`);
   }
-  if (r.exactOk !== null) lines.push(`<div class="line ${r.exactOk ? 'ok' : 'bad'}">Genaues Jahr (Tipp: ${esc(c.exact)}): ${r.exactOk ? `Punktlandung! +${R.exact}` : 'daneben'}</div>`);
+  if (r.exactOk !== null) {
+    const exactHit = parseInt(c.exact, 10) === song.jahr;
+    const word = r.exactOk ? `Punktlandung! +${R.exact}` : exactHit ? 'stimmt, aber die Karte liegt falsch – kein Bonus' : Math.abs(parseInt(c.exact, 10) - song.jahr) <= 2 ? 'knapp daneben' : 'daneben';
+    const st = r.exactOk ? 'ok' : r.guess && r.guess.year ? r.guess.year.state : 'bad';
+    lines.push(`<div class="line ${st}">Genaues Jahr (Tipp: ${esc(c.exact)}): ${word}</div>`);
+  }
   if (r.gain.tokens) lines.push(`<div class="line ok">+${r.gain.tokens} Token für ${esc(p.name)}</div>`);
   else if (r.pts && R.bonus !== 'tokens') lines.push(`<div class="line ok">★ +${r.pts} Bonus für ${esc(p.name)}</div>`);
   if (r.gain.cards) lines.push(`<div class="line ok big-line">+${r.gain.cards} Bonuskarte für ${esc(p.name)}!</div>`);
   const someoneWon = state.players.some((pl) => score(pl) >= state.settings.target);
   const nextName = state.players[(state.active + 1) % state.players.length].name;
+  const hasOwn = r.guess && (R.exact > 0 || R.country !== 'off' || R.place !== 'off' || R.artist || R.title);
+  const yt = song.youtube_id ? youtubeLink(song.youtube_id) : null;
   el.hidden = false;
-  el.innerHTML = `<div class="reveal-card">${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
+  el.innerHTML = `<div class="reveal-card ${hasOwn ? '' : 'solo'}">${hasOwn ? ownCardHTML(r.guess, R) : ''}${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
     <div class="reveal-info">${lines.join('')}
+      ${yt ? `<div class="row"><a class="btn yt" id="btn-yt" href="${esc(yt.href)}"${yt.target}>▶ Ganzes Video auf YouTube</a></div>` : ''}
       <div class="row"><button class="btn primary big" id="btn-next">${someoneWon ? 'Zur Siegerehrung' : `Weiter: ${esc(nextName)}`}</button></div>
     </div>`;
   $('#btn-next').onclick = nextTurn;
+  if (yt) $('#btn-yt').addEventListener('click', () => YTP.pause());
 }
 
 function showTimeline(i) {
@@ -773,6 +890,7 @@ function scrollToCard(id) {
 
 /* ------------------------------------------------------------------ Drag & Drop (Pointer-Events, Touch-tauglich) */
 let drag = null;
+const DRAG_BAND = 140; // so weit darf der Finger über/unter der Zeitleiste sein
 
 function bindDrag(card) {
   card.addEventListener('pointerdown', onDragStart);
@@ -817,7 +935,7 @@ function updateDropTarget() {
   const tlEl = $('#timeline');
   const r = tlEl.getBoundingClientRect();
   let best = null;
-  if (drag.y > r.top - 80 && drag.y < r.bottom + 80) {
+  if (drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
     let bestD = Infinity;
     for (const g of $$('.gap', tlEl)) {
       const gr = g.getBoundingClientRect();
@@ -835,10 +953,11 @@ function autoScroll() {
   if (!drag) return;
   const tlEl = $('#timeline');
   const r = tlEl.getBoundingClientRect();
-  if (drag.y > r.top - 80 && drag.y < r.bottom + 80) {
-    const edge = Math.min(70, r.width / 5);
-    if (drag.x < r.left + edge) tlEl.scrollLeft -= 10;
-    else if (drag.x > r.right - edge) tlEl.scrollLeft += 10;
+  if (drag.y > r.top - DRAG_BAND && drag.y < r.bottom + DRAG_BAND) {
+    const edge = Math.min(90, r.width / 4);
+    const speed = (depth) => 3 + 9 * Math.min(1, depth / edge);
+    if (drag.x < r.left + edge) tlEl.scrollLeft -= speed(r.left + edge - drag.x);
+    else if (drag.x > r.right - edge) tlEl.scrollLeft += speed(drag.x - (r.right - edge));
     updateDropTarget();
   }
   drag.raf = requestAnimationFrame(autoScroll);
@@ -898,8 +1017,10 @@ function limitTick() {
     c.timeUp = true;
     YTP.pause();
     save();
-    renderControls();
-    return;
+    const box = $('.limit');
+    if (box) box.classList.add('up');
+    const btn = $('#btn-play');
+    if (btn) btn.textContent = playLabel();
   }
   const fill = $('#limit-fill');
   if (fill) { fill.style.width = `${limitPercent(c)}%`; $('#limit-text').textContent = limitText(c); }
@@ -950,6 +1071,14 @@ function renderErrors() {
 
 /* ------------------------------------------------------------------ Start */
 async function main() {
+  // Enter schließt nur die Tastatur, löst nie etwas aus
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (e.key === 'Enter' && t.tagName === 'INPUT' && (t.type === 'text' || t.type === 'number')) {
+      e.preventDefault();
+      t.blur();
+    }
+  });
   $('#btn-info').onclick = openInfo;
   $('#btn-clear-errors').onclick = () => { store.del(KEY_ERRORS); renderErrors(); };
   $('#btn-menu').onclick = () => $('#dlg-menu').showModal();
@@ -994,6 +1123,7 @@ window.ESC = {
   next: () => nextTurn(),
   skip: () => skip(),
   score: (p) => score(p),
+  matchText,
   render: () => render(),
   errors: readErrors,
   player: YTP,

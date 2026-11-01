@@ -1,6 +1,6 @@
 // Spielregeln, fertige Modi und Migration gespeicherter Stände (ohne DOM)
 
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 export const BONUS_TARGETS = [3, 4, 5, 6, 8, 10];
 export const TIME_LIMITS = [0, 15, 20, 30, 45, 60];
 
@@ -9,6 +9,8 @@ export const DEFAULT_RULES = {
   country: 'off', // off | choice | free
   place: 'off', // off | neighbor | free
   exact: 0, // Bonuspunkte für das genaue Jahr: 0 | 1 | 2
+  artist: false,
+  title: false,
   bonus: 'tokens', // tokens | count | convert
   convertAt: 5,
   timeLimit: 0, // Sekunden, 0 = aus
@@ -22,8 +24,8 @@ export const PRESETS = [
   },
   {
     id: 'klassisch', name: 'Klassisch',
-    desc: 'Wie das Original: Genaues Jahr bringt Tokens.',
-    rules: { ...DEFAULT_RULES, exact: 1 },
+    desc: 'Wie das Original: Interpret, Titel und Jahr bringen Tokens.',
+    rules: { ...DEFAULT_RULES, exact: 1, artist: true, title: true },
   },
   {
     id: 'party', name: 'Party',
@@ -33,7 +35,7 @@ export const PRESETS = [
   {
     id: 'profi', name: 'ESC-Profi',
     desc: 'Alles frei eingeben, 5 Bonus = 1 Karte, 20 s pro Lied.',
-    rules: { ...DEFAULT_RULES, country: 'free', place: 'free', exact: 2, bonus: 'convert', convertAt: 5, timeLimit: 20 },
+    rules: { ...DEFAULT_RULES, country: 'free', place: 'free', exact: 2, artist: true, title: true, bonus: 'convert', convertAt: 5, timeLimit: 20 },
   },
 ];
 export const DEFAULT_PRESET = 'klassisch';
@@ -52,6 +54,12 @@ export function rulesEqual(a, b) {
 export function migrateSettings(st) {
   if (!st) return null;
   if (st.v >= SETTINGS_VERSION) return st;
+  if (st.v === 2) {
+    // Interpret/Titel sind neu: Wer einen fertigen Modus hatte, behält ihn, eigene Regeln bekommen beides aus.
+    const old = { ...DEFAULT_RULES, ...st.rules };
+    const hit = PRESETS.find((p) => rulesEqual({ ...old, artist: p.rules.artist, title: p.rules.title }, p.rules));
+    return { ...st, v: SETTINGS_VERSION, rules: hit ? { ...hit.rules } : old };
+  }
   const { modes, ...rest } = st;
   return {
     ...rest,
@@ -74,10 +82,13 @@ export function migrateState(saved) {
     };
     delete set.modes;
   }
+  set.rules = { ...DEFAULT_RULES, ...set.rules };
   for (const p of saved.players) p.bonus = p.bonus || 0;
   const c = saved.cur;
   if (c) {
     c.exact = c.exact ?? '';
+    c.artistTip = c.artistTip ?? '';
+    c.titleTip = c.titleTip ?? '';
     c.heard = c.heard || 0;
     c.timeUp = !!c.timeUp;
     c.released = !!c.released;

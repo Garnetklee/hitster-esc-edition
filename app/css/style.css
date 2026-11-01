@@ -34,6 +34,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 body.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+body.dragging .timeline { scroll-snap-type: none; }
 [hidden] { display: none !important; }
 a { color: var(--cyan); }
 h2 { margin: 0 0 12px; font-size: 1.2rem; letter-spacing: .02em; }
@@ -365,6 +366,32 @@ body.on-setup .topbar { position: static; background: none; backdrop-filter: non
 .r-star { color: #ffd76a; font-weight: 700; }
 .big-line { font-size: 1.15rem; font-weight: 800; }
 
+/* Vorschau der eigenen Eingaben auf der verdeckten Karte */
+.card.mystery.has-guess { justify-content: flex-start; }
+.card.mystery.has-guess .m-q { position: absolute; inset: 0; display: grid; place-items: center; opacity: .16; }
+.guess-preview { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; pointer-events: none; }
+.guess-preview:empty { display: none; }
+.guess-preview > div { color: #bdb6cf; background: none; -webkit-text-fill-color: currentColor; filter: none; font-style: normal; max-width: 100%; overflow-wrap: anywhere; }
+.guess-preview .c-place { margin-top: 2px; }
+
+/* Eigene Karte beim Auflösen */
+.reveal-card { display: flex; justify-content: center; align-items: stretch; gap: 10px; }
+.card.own { background: linear-gradient(160deg, #1d1a2b, #111019); box-shadow: 0 0 0 1px rgba(189,182,207,.45), 0 6px 18px rgba(0,0,0,.45); }
+.card.own::before { content: none; }
+.own-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #bdb6cf; }
+.card.own .c-year { -webkit-text-fill-color: currentColor; filter: none; -webkit-background-clip: border-box; background-clip: border-box; }
+.card.own .c-title { font-style: italic; }
+.card.big.own { padding: 8px 8px; gap: 4px; }
+.card.big.own .c-year { font-size: 2.2rem; }
+.own-row { width: 100%; padding: 2px 5px; border-radius: 7px; line-height: 1.15; overflow-wrap: anywhere; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-height: none; }
+.own-row i { font-style: normal; font-weight: 800; }
+.own-row.g-none { color: #77718a; background: none; }
+.own-row.g-ok { color: var(--ok); background: rgba(61,255,168,.14); box-shadow: inset 0 0 0 1px rgba(61,255,168,.5); }
+.own-row.g-near { color: #ffd76a; background: rgba(255,215,106,.14); box-shadow: inset 0 0 0 1px rgba(255,215,106,.5); }
+.own-row.g-bad { color: var(--bad); background: rgba(255,77,109,.14); box-shadow: inset 0 0 0 1px rgba(255,77,109,.5); }
+.line.near { color: #ffd76a; }
+.btn.yt { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: var(--text); }
+
 html, body { overflow-x: clip; }
 
 /* Tablet */
@@ -424,7 +451,13 @@ html, body { overflow-x: clip; }
   .card.mystery span { font-size: 3.4rem; }
   .gap { width: 34px; }
   .reveal { padding: 12px; gap: 12px; }
-  .card.big { --card-w: 170px; --card-h: 236px; }
+  .card.big { --card-w: 146px; --card-h: 216px; margin: 0; padding: 10px 8px; }
+  .card.big .c-year { font-size: 2.4rem; }
+  .card.big .c-artist { font-size: .88rem; }
+  .card.big .c-title { font-size: .8rem; }
+  .card.big .c-place { font-size: .72rem; }
+  .card.big.own .c-year { font-size: 1.7rem; }
+  .reveal-card.solo .card.big { --card-w: 170px; --card-h: 236px; }
   .verdict { font-size: 1.15rem; }
   .reveal-info { flex: 1 1 100%; }
   .reveal-info .btn { width: 100%; }
@@ -455,7 +488,8 @@ html, body { overflow-x: clip; }
   .c-title { font-size: .68rem; }
   .c-place { font-size: .6rem; }
   .card.mystery span { font-size: 3rem; }
-  .card.big { --card-w: 150px; --card-h: 196px; }
+  .card.big { --card-w: 150px; --card-h: 222px; }
   .card.big .c-year { font-size: 2.4rem; }
+  .card.big.own .c-year { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
