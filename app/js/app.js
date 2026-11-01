@@ -78,8 +78,8 @@ function cardHTML(s, cls = '') {
   </div>`;
 }
 function mysteryHTML(cls = '') {
-  const preview = state && state.cur ? previewHTML(guessFields(state.cur)) : '';
-  return `<div class="card mystery ${cls} ${preview ? 'has-guess' : ''}" data-drag="1" aria-label="Verdeckte Karte"><span class="m-q">?</span><div class="guess-preview">${preview}</div></div>`;
+  const preview = state && state.cur ? tipHTML(guessFields(state.cur)) : '';
+  return `<div class="card mystery ${cls} ${preview ? 'tip' : ''}" data-drag="1" aria-label="Verdeckte Karte"><span class="m-q">?</span><div class="guess-preview">${preview}</div></div>`;
 }
 
 /* ------------------------------------------------------------------ Setup */
@@ -476,7 +476,7 @@ function reveal() {
     const off = Math.abs(exactYear - song.jahr);
     guess.year = { tip: tips.year, state: off === 0 ? (correct ? 'ok' : 'near') : off <= 2 ? 'near' : 'bad' };
   }
-  if (countryOk !== null) guess.land = { tip: tips.land, state: countryOk ? 'ok' : 'bad' };
+  if (countryOk !== null) guess.land = { tip: tips.land, iso: tips.landIso, state: countryOk ? 'ok' : 'bad' };
   if (artistState) guess.artist = { tip: tips.artist, state: artistState };
   if (titleState) guess.title = { tip: tips.title, state: titleState };
   if (placeOk !== null) {
@@ -556,8 +556,14 @@ function guessFields(c) {
   const R = rules();
   const f = {};
   if (R.exact > 0 && String(c.exact).trim()) f.year = String(c.exact).trim();
-  if (R.country === 'choice' && c.country.guess) f.land = COUNTRY_NAMES.get(c.country.guess) || c.country.guess;
-  if (R.country === 'free' && c.country.text.trim()) f.land = c.country.text.trim();
+  if (R.country === 'choice' && c.country.guess) {
+    f.land = COUNTRY_NAMES.get(c.country.guess) || c.country.guess;
+    f.landIso = c.country.guess;
+  }
+  if (R.country === 'free' && c.country.text.trim()) {
+    f.land = c.country.text.trim();
+    f.landIso = matchCountry(f.land, COUNTRY_NAMES);
+  }
   if (R.artist && c.artistTip.trim()) f.artist = c.artistTip.trim();
   if (R.title && c.titleTip.trim()) f.title = c.titleTip.trim();
   if (R.place === 'free') {
@@ -571,37 +577,35 @@ function guessFields(c) {
   return f;
 }
 
-function previewHTML(f) {
-  return [['year', 'c-year'], ['land', 'c-land'], ['artist', 'c-artist'], ['title', 'c-title'], ['place', 'c-place']]
-    .filter(([k]) => f[k]).map(([k, cls]) => `<div class="${cls}">${esc(f[k])}</div>`).join('');
+/** Eigene Eingaben im Aufbau einer echten Karte. states färbt beim Auflösen die Schrift. */
+function tipHTML(f, states = {}) {
+  const row = (key, cls, inner) => (f[key] ? `<div class="${cls} ${states[key] ? `g-${states[key]}` : ''}">${inner}</div>` : '');
+  return row('year', 'c-year', esc(f.year))
+    + row('land', 'c-land', `${f.landIso ? flagHTML(f.landIso) : ''}<span>${esc(f.land)}</span>`)
+    + row('artist', 'c-artist', esc(f.artist))
+    + row('title', 'c-title', esc(f.title))
+    + row('place', 'c-place', esc(f.place));
 }
 
 /** Aktualisiert nur die Vorschau, damit das Eingabefeld beim Tippen den Fokus behält. */
 function updateGuessPreview() {
-  const preview = previewHTML(guessFields(state.cur));
+  const preview = tipHTML(guessFields(state.cur));
   for (const card of $$('#timeline .card.mystery, #deck .card.mystery')) {
     $('.guess-preview', card).innerHTML = preview;
-    card.classList.toggle('has-guess', !!preview);
+    card.classList.toggle('tip', !!preview);
   }
 }
 
-const GUESS_MARK = { ok: '✓', near: '~', bad: '✕' };
-
-/** Die eigene Karte beim Auflösen: Felder aus den Regeln, farbig nach Bewertung. */
-function ownCardHTML(g, R) {
-  const row = (key, on, cls) => {
-    if (!on) return '';
-    const it = g[key];
-    if (!it) return `<div class="own-row ${cls} g-none">–</div>`;
-    return `<div class="own-row ${cls} g-${it.state}"><i>${GUESS_MARK[it.state]}</i> ${esc(it.tip)}</div>`;
-  };
-  return `<div class="card big own"><div class="own-label">Dein Tipp</div>
-    ${row('year', R.exact > 0, 'c-year')}
-    ${row('land', R.country !== 'off', 'c-land')}
-    ${row('artist', R.artist, 'c-artist')}
-    ${row('title', R.title, 'c-title')}
-    ${row('place', R.place !== 'off', 'c-place')}
-  </div>`;
+/** Die eigene Karte beim Auflösen: dasselbe Design wie die Vorschau, nur die Schriftfarbe zeigt die Bewertung. */
+function ownCardHTML(g) {
+  const f = {};
+  const states = {};
+  for (const k of ['year', 'land', 'artist', 'title', 'place']) {
+    if (g[k]) { f[k] = g[k].tip; states[k] = g[k].state; }
+  }
+  if (g.land) f.landIso = g.land.iso;
+  const html = tipHTML(f, states);
+  return `<div class="card big tip own ${html ? '' : 'empty'}">${html || '<span class="m-q">?</span>'}</div>`;
 }
 
 function youtubeLink(id) {
@@ -863,7 +867,7 @@ function renderReveal() {
   const hasOwn = r.guess && (R.exact > 0 || R.country !== 'off' || R.place !== 'off' || R.artist || R.title);
   const yt = song.youtube_id ? youtubeLink(song.youtube_id) : null;
   el.hidden = false;
-  el.innerHTML = `<div class="reveal-card ${hasOwn ? '' : 'solo'}">${hasOwn ? ownCardHTML(r.guess, R) : ''}${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
+  el.innerHTML = `<div class="reveal-card ${hasOwn ? '' : 'solo'}">${hasOwn ? ownCardHTML(r.guess) : ''}${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
     <div class="reveal-info">${lines.join('')}
       ${yt ? `<div class="row"><a class="btn yt" id="btn-yt" href="${esc(yt.href)}"${yt.target}>▶ Ganzes Video auf YouTube</a></div>` : ''}
       <div class="row"><button class="btn primary big" id="btn-next">${someoneWon ? 'Zur Siegerehrung' : `Weiter: ${esc(nextName)}`}</button></div>

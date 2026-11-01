@@ -207,7 +207,7 @@ input[type=text], input[type=number] {
   background: radial-gradient(circle at 50% 40%, #3b1470, #12062a 70%);
   box-shadow: 0 0 0 2px var(--magenta), var(--glow-m);
 }
-.card.mystery span {
+.card .m-q {
   font-size: 4.2rem; font-weight: 900; line-height: 1;
   background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 0 10px rgba(34,230,255,.7));
@@ -366,29 +366,23 @@ body.on-setup .topbar { position: static; background: none; backdrop-filter: non
 .r-star { color: #ffd76a; font-weight: 700; }
 .big-line { font-size: 1.15rem; font-weight: 800; }
 
-/* Vorschau der eigenen Eingaben auf der verdeckten Karte */
-.card.mystery.has-guess { justify-content: flex-start; }
-.card.mystery.has-guess .m-q { position: absolute; inset: 0; display: grid; place-items: center; opacity: .16; }
-.guess-preview { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; pointer-events: none; }
+/* Eigene Karte: Design einer echten Karte, leicht grau. Vorschau und Auflösung nutzen dieselbe Klasse. */
+.card.tip { background: linear-gradient(160deg, #2a2735, #16141d); box-shadow: 0 0 0 1px rgba(189,182,207,.5), 0 6px 18px rgba(0,0,0,.45); }
+.card.mystery.tip { justify-content: flex-start; cursor: grab; }
+.card.tip::before { background: linear-gradient(135deg, #a7a2b6, #5f5b6e); }
+.card.tip .c-year, .card.tip .c-land, .card.tip .c-artist, .card.tip .c-title, .card.tip .c-place { color: #c3bdd2; }
+.card.tip .c-year { background: none; -webkit-text-fill-color: currentColor; filter: none; }
+.card.tip .flag { filter: grayscale(.3); pointer-events: none; }
+.card.tip .g-ok { color: var(--ok); }
+.card.tip .g-near { color: #ffd76a; }
+.card.tip .g-bad { color: var(--bad); }
+.card.tip.empty { justify-content: center; }
+.card.mystery.tip .m-q { display: none; }
+.guess-preview { display: contents; }
 .guess-preview:empty { display: none; }
-.guess-preview > div { color: #bdb6cf; background: none; -webkit-text-fill-color: currentColor; filter: none; font-style: normal; max-width: 100%; overflow-wrap: anywhere; }
-.guess-preview .c-place { margin-top: 2px; }
 
-/* Eigene Karte beim Auflösen */
+/* Eigene Karte neben der Lösung */
 .reveal-card { display: flex; justify-content: center; align-items: stretch; gap: 10px; }
-.card.own { background: linear-gradient(160deg, #1d1a2b, #111019); box-shadow: 0 0 0 1px rgba(189,182,207,.45), 0 6px 18px rgba(0,0,0,.45); }
-.card.own::before { content: none; }
-.own-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #bdb6cf; }
-.card.own .c-year { -webkit-text-fill-color: currentColor; filter: none; -webkit-background-clip: border-box; background-clip: border-box; }
-.card.own .c-title { font-style: italic; }
-.card.big.own { padding: 8px 8px; gap: 4px; }
-.card.big.own .c-year { font-size: 2.2rem; }
-.own-row { width: 100%; padding: 2px 5px; border-radius: 7px; line-height: 1.15; overflow-wrap: anywhere; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-height: none; }
-.own-row i { font-style: normal; font-weight: 800; }
-.own-row.g-none { color: #77718a; background: none; }
-.own-row.g-ok { color: var(--ok); background: rgba(61,255,168,.14); box-shadow: inset 0 0 0 1px rgba(61,255,168,.5); }
-.own-row.g-near { color: #ffd76a; background: rgba(255,215,106,.14); box-shadow: inset 0 0 0 1px rgba(255,215,106,.5); }
-.own-row.g-bad { color: var(--bad); background: rgba(255,77,109,.14); box-shadow: inset 0 0 0 1px rgba(255,77,109,.5); }
 .line.near { color: #ffd76a; }
 .btn.yt { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: var(--text); }
 
@@ -448,7 +442,7 @@ html, body { overflow-x: clip; }
   .c-title { font-size: .7rem; }
   .c-place { font-size: .62rem; }
   .card { padding: 8px 6px 6px; }
-  .card.mystery span { font-size: 3.4rem; }
+  .card .m-q { font-size: 3.4rem; }
   .gap { width: 34px; }
   .reveal { padding: 12px; gap: 12px; }
   .card.big { --card-w: 146px; --card-h: 216px; margin: 0; padding: 10px 8px; }
@@ -456,7 +450,6 @@ html, body { overflow-x: clip; }
   .card.big .c-artist { font-size: .88rem; }
   .card.big .c-title { font-size: .8rem; }
   .card.big .c-place { font-size: .72rem; }
-  .card.big.own .c-year { font-size: 1.7rem; }
   .reveal-card.solo .card.big { --card-w: 170px; --card-h: 236px; }
   .verdict { font-size: 1.15rem; }
   .reveal-info { flex: 1 1 100%; }
@@ -481,15 +474,14 @@ html, body { overflow-x: clip; }
   .tb-name { font-size: 1.05rem; }
   .deck { margin: 2px 0 6px; font-size: .85rem; min-height: 0; }
   .deck .card.mystery { --card-w: 58px; --card-h: 78px; padding: 2px; }
-  .deck .card.mystery span { font-size: 2rem; }
+  .deck .card .m-q { font-size: 2rem; }
   .timeline { min-height: calc(var(--card-h) + 20px); padding-top: 8px; padding-bottom: 10px; }
   .c-year { font-size: 1.6rem; }
   .c-artist { font-size: .72rem; }
   .c-title { font-size: .68rem; }
   .c-place { font-size: .6rem; }
-  .card.mystery span { font-size: 3rem; }
+  .card .m-q { font-size: 3rem; }
   .card.big { --card-w: 150px; --card-h: 222px; }
   .card.big .c-year { font-size: 2.4rem; }
-  .card.big.own .c-year { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
