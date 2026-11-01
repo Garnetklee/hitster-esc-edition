@@ -10,7 +10,7 @@ DATA = ESC / "data"
 RAW = DATA / "raw"
 RAW.mkdir(parents=True, exist_ok=True)
 
-USER_AGENT = "HitsterESC/1.0 (private project; https://github.com/Garnetklee/hitster-esc)"
+USER_AGENT = "HitsterESC/1.0 (private project; https://github.com/Garnetklee/hitster-esc-edition)"
 
 COLS = ("id;jahr;austragungsort;land;land_iso;interpret;titel;sprache;runde_ende;platz;teilnehmer;punkte;"
         "platz_finale;platz_hf;hf_nr;sieger;sonderfall;youtube_id;start_sek;video_typ;embed_ok;yt_views;"
