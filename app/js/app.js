@@ -1,7 +1,7 @@
 // Hitster ESC Edition – Hauptmodul (UI + Spielablauf)
 import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
-  QUICK_COUNTRIES, hasVideo, isCancelled, freePlacePoints, matchCountry, matchText,
+  QUICK_COUNTRIES, hasVideo, isCancelled, freePlacePoints, matchCountry, matchText, countryOptions,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -302,13 +302,12 @@ function draw() {
 }
 
 function newTurn(song) {
-  const others = shuffle([...COUNTRY_NAMES.keys()].filter((c) => c !== song.land_iso)).slice(0, 3);
   return {
     songId: song.id,
     phase: 'listen',
     gap: null,
     steal: null,
-    country: { options: shuffle([song.land_iso, ...others]), guess: null, text: '' },
+    country: { options: countryOptions(song, DATA.songs), guess: null, text: '' },
     place: { neighborId: null, guess: null, free: '', hf: false },
     exact: '',
     artistTip: '',
@@ -352,6 +351,7 @@ function resumeGame(saved) {
 }
 
 function startTurn() {
+  hidePlayer();
   stealPick = null;
   const song = draw();
   if (!song) { toast('Der Pool ist leer – Spielende!'); endGame(); return; }
@@ -445,6 +445,7 @@ function reveal() {
   const c = state.cur;
   if (c.phase !== 'listen' || c.gap === null) return;
   stealPick = null;
+  hidePlayer();
   const p = activeP();
   const song = S(c.songId);
   const tl = tlSongs(p);
@@ -525,6 +526,7 @@ function nextTurn() {
 }
 
 function endGame() {
+  hidePlayer();
   YTP.stop();
   state.finished = true;
   save();
@@ -725,11 +727,15 @@ function renderControls() {
     <div class="row player-row">
       <button class="btn play big" id="btn-play" ${hasAudio ? '' : 'disabled'}>${playLabel()}</button>
       <button class="btn" id="btn-restart" ${hasAudio ? '' : 'disabled'}>↺ Neu ab Start</button>
+      <button class="btn" id="btn-show-player" ${hasAudio ? '' : 'disabled'} aria-label="Player einblenden, zum Beispiel bei Werbung" title="Player einblenden, zum Beispiel bei Werbung">📺</button>
     </div>
     ${limitBar}
     <div class="stall" id="stall" ${c.stalled ? '' : 'hidden'}>
-      <span>Das Lied lädt gerade nicht. Vielleicht läuft Werbung oder die Verbindung hängt.</span>
-      <button class="btn small" id="btn-other-song">Anderes Lied (gratis)</button>
+      <span>Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.</span>
+      <div class="row">
+        <button class="btn small" id="btn-stall-player">📺 Player zeigen</button>
+        <button class="btn small" id="btn-other-song">Anderes Lied (gratis)</button>
+      </div>
     </div>
     <div class="row action-row">
       <button class="btn ghost" id="btn-skip" ${p.tokens >= 1 ? '' : 'disabled'}>Überspringen <small>(1 Token)</small></button>
@@ -751,6 +757,8 @@ function renderControls() {
   };
   $('#btn-skip').onclick = skip;
   $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
+  $('#btn-show-player').onclick = showPlayer;
+  $('#btn-stall-player').onclick = showPlayer;
   if (R.steal) $('#btn-steal').onclick = openSteal;
   if (R.exact > 0) $('#inp-exact').addEventListener('input', (e) => { c.exact = e.target.value; save(); updateGuessPreview(); });
   $('#btn-reveal').onclick = reveal;
@@ -763,7 +771,7 @@ function bonusHint() {
 function countryBoxHTML(c, R) {
   if (R.country === 'choice') {
     return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(${bonusHint()})</small></div><div class="opts">${
-      c.country.options.map((iso) => `<button class="opt ${c.country.guess === iso ? 'sel' : ''}" data-country="${iso}" ${c.country.guess ? 'disabled' : ''}>${flagHTML(iso)}<span>${esc(COUNTRY_NAMES.get(iso) || iso)}</span></button>`).join('')
+      c.country.options.map((iso) => `<button class="opt ${c.country.guess === iso ? 'sel' : ''}" data-country="${iso}">${flagHTML(iso)}<span>${esc(COUNTRY_NAMES.get(iso) || iso)}</span></button>`).join('')
     }</div></div>`;
   }
   const names = [...COUNTRY_NAMES.values()].sort((x, y) => x.localeCompare(y, 'de'));
@@ -794,8 +802,8 @@ function placeBoxHTML(c, R) {
       const g = c.place.guess;
       inner = `<div class="small">Besser oder schlechter platziert als <b>${esc(nb.interpret)}</b> (${nb.jahr}, ${esc(placementText(nb))})?</div>
         <div class="opts two">
-          <button class="opt ${g === 'besser' ? 'sel' : ''}" data-place="besser" ${g ? 'disabled' : ''}>▲ Besser</button>
-          <button class="opt ${g === 'schlechter' ? 'sel' : ''}" data-place="schlechter" ${g ? 'disabled' : ''}>▼ Schlechter</button>
+          <button class="opt ${g === 'besser' ? 'sel' : ''}" data-place="besser">▲ Besser</button>
+          <button class="opt ${g === 'schlechter' ? 'sel' : ''}" data-place="schlechter">▼ Schlechter</button>
         </div>`;
     }
   }
@@ -817,8 +825,8 @@ function renderBonus() {
   if (c.phase !== 'listen' || (R.country === 'off' && R.place === 'off' && !hasSong)) { el.innerHTML = ''; return; }
   el.innerHTML = (hasSong ? songBoxHTML(c, R) : '') + (R.country !== 'off' ? countryBoxHTML(c, R) : '') + (R.place !== 'off' ? placeBoxHTML(c, R) : '');
   const changed = () => { save(); updateGuessPreview(); };
-  $$('[data-country]', el).forEach((b) => b.addEventListener('click', () => { c.country.guess = b.dataset.country; renderBonus(); changed(); }));
-  $$('[data-place]', el).forEach((b) => b.addEventListener('click', () => { c.place.guess = b.dataset.place; renderBonus(); changed(); }));
+  $$('[data-country]', el).forEach((b) => b.addEventListener('click', () => { c.country.guess = c.country.guess === b.dataset.country ? null : b.dataset.country; renderBonus(); changed(); }));
+  $$('[data-place]', el).forEach((b) => b.addEventListener('click', () => { c.place.guess = c.place.guess === b.dataset.place ? null : b.dataset.place; renderBonus(); changed(); }));
   const ci = $('#inp-country', el);
   if (ci) ci.addEventListener('input', () => { c.country.text = ci.value; changed(); });
   const pi = $('#inp-place', el);
@@ -1060,11 +1068,47 @@ function handleStall(st, cur) {
   if (box) box.hidden = false;
 }
 
+/** Nicht gestartet (Autoplay blockiert oder Werbung): Hinweis zeigen, nichts neu laden. */
+function handleBlocked(cur) {
+  setAudioStatus('idle');
+  if (!state || !state.cur || state.cur.phase !== 'listen') return;
+  const song = S(state.cur.songId);
+  if (!song || !cur || cur.videoId !== song.youtube_id) return;
+  state.cur.stalled = true;
+  save();
+  const box = $('#stall');
+  if (box) box.hidden = false;
+}
+
+/* ------------------------------------------------------------------ Player einblenden (Werbung überspringen) */
+let playerShown = false;
+let shownWhilePlaying = false;
+
+function showPlayer() {
+  playerShown = true;
+  shownWhilePlaying = YTP.state() === YTP.State.PLAYING;
+  const wrap = $('#yt-wrap');
+  wrap.classList.add('show', 'masked');
+  wrap.removeAttribute('aria-hidden');
+  $('#yt-bar').hidden = false;
+}
+
+function hidePlayer() {
+  playerShown = false;
+  const wrap = $('#yt-wrap');
+  wrap.classList.remove('show', 'masked');
+  wrap.setAttribute('aria-hidden', 'true');
+  $('#yt-bar').hidden = true;
+}
+
 /* ------------------------------------------------------------------ Player-Ereignisse */
 function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
   YTP.initPlayer({
     onState(st) {
+      // Das Lied startet: Player sofort wieder verstecken, damit nichts verraten wird
+      if (playerShown && st === YTP.State.PLAYING && !shownWhilePlaying) hidePlayer();
+      if (st !== YTP.State.PLAYING) shownWhilePlaying = false;
       if (st === YTP.State.PLAYING) setAudioStatus('playing');
       else if (st === YTP.State.BUFFERING) setAudioStatus('loading');
       else if (st === YTP.State.PAUSED) setAudioStatus('paused');
@@ -1086,7 +1130,7 @@ function initAudio() {
     },
     onStalled: handleStall,
     onRetry(attempt) { loadAttempt = attempt; setAudioStatus('loading'); },
-    onBlocked() { setAudioStatus('idle'); toast('Tippe auf „▶ Abspielen“, um das Lied zu starten.'); },
+    onBlocked: handleBlocked,
     onApiFail() { toast('YouTube-Player konnte nicht geladen werden (offline?).', 5000); },
   });
 }
@@ -1114,6 +1158,8 @@ function renderErrors() {
 
 /* ------------------------------------------------------------------ Start */
 async function main() {
+  $('#btn-hide-player').onclick = hidePlayer;
+  $('#btn-unmask-player').onclick = () => $('#yt-wrap').classList.remove('masked');
   // Enter schließt nur die Tastatur, löst nie etwas aus
   document.addEventListener('keydown', (e) => {
     const t = e.target;
@@ -1167,6 +1213,8 @@ window.ESC = {
   skip: () => skip(),
   score: (p) => score(p),
   stall: (st, cur) => handleStall(st, cur),
+  countryOptions,
+  showPlayer: () => showPlayer(),
   matchText,
   render: () => render(),
   errors: readErrors,

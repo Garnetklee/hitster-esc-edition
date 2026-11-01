@@ -56,7 +56,8 @@ function armTimer(resetRetries = true) {
     if (document.hidden) { armTimer(false); return; }
     const st = state();
     if (st === State.PLAYING || st === State.PAUSED || st === State.ENDED) return;
-    if (!userRequested && st !== State.BUFFERING) { handlers.onBlocked && handlers.onBlocked(); return; }
+    // Nicht gestartet: Autoplay blockiert oder Werbung. Neu laden würde nur die nächste Werbung holen.
+    if (st !== State.BUFFERING) { handlers.onBlocked && handlers.onBlocked(current); return; }
     // YouTube bleibt beim ersten Laden manchmal dauerhaft hängen, erneutes Laden löst das oft
     if (retries < RETRY_STEPS_MS.length - 1) {
       retries += 1;
@@ -92,10 +93,8 @@ export function toggle() {
   if (isPlaying()) { player.pauseVideo(); return true; }
   userRequested = true;
   const st = state();
-  if (st === State.UNSTARTED || st === State.CUED || st === State.ENDED) {
-    if (st === State.ENDED) player.seekTo(current.start, true);
-    else player.loadVideoById({ videoId: current.videoId, startSeconds: current.start });
-  }
+  if (st === State.ENDED) player.seekTo(current.start, true);
+  else if (st === State.CUED) player.loadVideoById({ videoId: current.videoId, startSeconds: current.start });
   player.playVideo();
   armTimer();
   return true;

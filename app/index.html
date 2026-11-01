@@ -12,8 +12,19 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="on-setup">
-  <!-- Unsichtbarer YouTube-Player: 1x1 px, transparent, außerhalb des Sichtbereichs (nicht display:none) -->
-  <div id="yt-wrap" aria-hidden="true"><div id="yt-player"></div></div>
+  <!-- YouTube-Player: normalerweise 1x1 px und unsichtbar (nicht display:none), bei Werbung einblendbar -->
+  <div id="yt-wrap" aria-hidden="true">
+    <div id="yt-player"></div>
+    <div class="yt-mask yt-mask-left"></div>
+    <div class="yt-mask yt-mask-top"></div>
+  </div>
+  <div id="yt-bar" class="yt-bar" hidden>
+    <span>Tippe im Video unten rechts auf „Überspringen“. Das Fenster schließt sich, sobald das Lied startet.</span>
+    <div class="row">
+      <button class="btn small ghost" id="btn-unmask-player">Ganzes Bild (verrät das Lied)</button>
+      <button class="btn small" id="btn-hide-player">Schließen</button>
+    </div>
+  </div>
 
   <header class="topbar">
     <div class="brand">

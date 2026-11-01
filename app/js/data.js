@@ -96,6 +96,13 @@ export function relRank(s) {
   return s.platz / s.teilnehmer;
 }
 
+/** Vier Länder zum Raten: das richtige und drei, die im selben Jahr teilgenommen haben. */
+export function countryOptions(song, songs) {
+  const sameYear = [...new Set(songs.filter((s) => s.jahr === song.jahr).map((s) => s.land_iso))]
+    .filter((iso) => iso && iso !== song.land_iso);
+  return shuffle([song.land_iso, ...shuffle(sameYear).slice(0, 3)]);
+}
+
 /** Bonuspunkte für einen freien Platz-Tipp: exakt 2, bis 2 Plätze daneben 1, richtiges Halbfinal-Aus 1. */
 export function freePlacePoints(s, guess) {
   const out = s.runde_ende !== 'Finale';
