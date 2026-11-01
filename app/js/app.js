@@ -739,13 +739,13 @@ function renderControls() {
     </div>`;
   $('#btn-play').onclick = () => {
     if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
-    releaseLimit();
+    renewLimit();
     if (audioStatus === 'idle' || audioStatus === 'paused') setAudioStatus('loading');
     YTP.toggle();
   };
   $('#btn-restart').onclick = () => {
     if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
-    releaseLimit();
+    renewLimit();
     setAudioStatus('loading');
     YTP.restart();
   };
@@ -1007,7 +1007,7 @@ const limitText = (c) => (c.timeUp ? '⏱ Zeit um' : `⏱ ${Math.ceil(Math.max(0
 
 function playLabel() {
   const c = state && state.cur;
-  if (c && limitActive(c) && c.timeUp && audioStatus !== 'playing') return '▶ Weiterhören (gratis)';
+  if (c && limitActive(c) && c.timeUp && audioStatus !== 'playing') return `▶ Weitere ${limitOf()} s hören`;
   if (audioStatus === 'loading') return `<span class="spin"></span> Lädt …${loadAttempt > 1 ? ` <small>(Versuch ${loadAttempt})</small>` : ''}`;
   if (audioStatus === 'playing') return '<span class="eq"><i></i><i></i><i></i></span> Läuft · Pause';
   return '▶ Abspielen';
@@ -1019,10 +1019,10 @@ function setAudioStatus(st) {
   if (b) b.innerHTML = playLabel();
 }
 
-/** Nach Ablauf gibt ein Klick auf Abspielen das Lied frei, danach kein Limit mehr. */
-function releaseLimit() {
+/** Nach Ablauf startet ein Klick auf Abspielen ein neues Zeitfenster, beliebig oft. */
+function renewLimit() {
   const c = state.cur;
-  if (limitActive(c) && c.timeUp) { c.released = true; save(); renderControls(); }
+  if (limitActive(c) && c.timeUp) { c.timeUp = false; c.heard = 0; save(); renderControls(); }
 }
 
 let limitLast = 0;
