@@ -1,0 +1,10 @@
+# Rohdaten und Caches: groß und jederzeit neu erzeugbar
+data/raw/
+
+# API-Keys
+.env
+
+__pycache__/
+*.pyc
+*.log
+.claude/

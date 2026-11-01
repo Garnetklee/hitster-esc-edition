@@ -1,0 +1,699 @@
+{
+ "jahre": {
+  "1956": {
+   "beitraege": 14,
+   "teilnehmer_tabelle": 14,
+   "ort": "Lugano",
+   "runden": {
+    "finale": 14
+   }
+  },
+  "1957": {
+   "beitraege": 10,
+   "teilnehmer_tabelle": 10,
+   "ort": "Frankfurt",
+   "runden": {
+    "finale": 10
+   }
+  },
+  "1958": {
+   "beitraege": 10,
+   "teilnehmer_tabelle": 10,
+   "ort": "Hilversum",
+   "runden": {
+    "finale": 10
+   }
+  },
+  "1959": {
+   "beitraege": 11,
+   "teilnehmer_tabelle": 11,
+   "ort": "Cannes",
+   "runden": {
+    "finale": 11
+   }
+  },
+  "1960": {
+   "beitraege": 13,
+   "teilnehmer_tabelle": 13,
+   "ort": "London",
+   "runden": {
+    "finale": 13
+   }
+  },
+  "1961": {
+   "beitraege": 16,
+   "teilnehmer_tabelle": 16,
+   "ort": "Cannes",
+   "runden": {
+    "finale": 16
+   }
+  },
+  "1962": {
+   "beitraege": 16,
+   "teilnehmer_tabelle": 16,
+   "ort": "Luxemburg",
+   "runden": {
+    "finale": 16
+   }
+  },
+  "1963": {
+   "beitraege": 16,
+   "teilnehmer_tabelle": 16,
+   "ort": "London",
+   "runden": {
+    "finale": 16
+   }
+  },
+  "1964": {
+   "beitraege": 16,
+   "teilnehmer_tabelle": 16,
+   "ort": "Kopenhagen",
+   "runden": {
+    "finale": 16
+   }
+  },
+  "1965": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Neapel",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1966": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Luxemburg",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1967": {
+   "beitraege": 17,
+   "teilnehmer_tabelle": 17,
+   "ort": "Wien",
+   "runden": {
+    "finale": 17
+   }
+  },
+  "1968": {
+   "beitraege": 17,
+   "teilnehmer_tabelle": 17,
+   "ort": "London",
+   "runden": {
+    "finale": 17
+   }
+  },
+  "1969": {
+   "beitraege": 16,
+   "teilnehmer_tabelle": 16,
+   "ort": "Madrid",
+   "runden": {
+    "finale": 16
+   }
+  },
+  "1970": {
+   "beitraege": 12,
+   "teilnehmer_tabelle": 12,
+   "ort": "Amsterdam",
+   "runden": {
+    "finale": 12
+   }
+  },
+  "1971": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1972": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Edinburgh",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1973": {
+   "beitraege": 17,
+   "teilnehmer_tabelle": 17,
+   "ort": "Luxemburg",
+   "runden": {
+    "finale": 17
+   }
+  },
+  "1974": {
+   "beitraege": 17,
+   "teilnehmer_tabelle": 17,
+   "ort": "Brighton",
+   "runden": {
+    "finale": 17
+   }
+  },
+  "1975": {
+   "beitraege": 19,
+   "teilnehmer_tabelle": 19,
+   "ort": "Stockholm",
+   "runden": {
+    "finale": 19
+   }
+  },
+  "1976": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Den Haag",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1977": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "London",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1978": {
+   "beitraege": 20,
+   "teilnehmer_tabelle": 20,
+   "ort": "Paris",
+   "runden": {
+    "finale": 20
+   }
+  },
+  "1979": {
+   "beitraege": 19,
+   "teilnehmer_tabelle": 19,
+   "ort": "Jerusalem",
+   "runden": {
+    "finale": 19
+   }
+  },
+  "1980": {
+   "beitraege": 19,
+   "teilnehmer_tabelle": 19,
+   "ort": "Den Haag",
+   "runden": {
+    "finale": 19
+   }
+  },
+  "1981": {
+   "beitraege": 20,
+   "teilnehmer_tabelle": 20,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 20
+   }
+  },
+  "1982": {
+   "beitraege": 18,
+   "teilnehmer_tabelle": 18,
+   "ort": "Harrogate",
+   "runden": {
+    "finale": 18
+   }
+  },
+  "1983": {
+   "beitraege": 20,
+   "teilnehmer_tabelle": 20,
+   "ort": "München",
+   "runden": {
+    "finale": 20
+   }
+  },
+  "1984": {
+   "beitraege": 19,
+   "teilnehmer_tabelle": 19,
+   "ort": "Luxemburg",
+   "runden": {
+    "finale": 19
+   }
+  },
+  "1985": {
+   "beitraege": 19,
+   "teilnehmer_tabelle": 19,
+   "ort": "Göteborg",
+   "runden": {
+    "finale": 19
+   }
+  },
+  "1986": {
+   "beitraege": 20,
+   "teilnehmer_tabelle": 20,
+   "ort": "Bergen",
+   "runden": {
+    "finale": 20
+   }
+  },
+  "1987": {
+   "beitraege": 22,
+   "teilnehmer_tabelle": 22,
+   "ort": "Brüssel",
+   "runden": {
+    "finale": 22
+   }
+  },
+  "1988": {
+   "beitraege": 21,
+   "teilnehmer_tabelle": 21,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 21
+   }
+  },
+  "1989": {
+   "beitraege": 22,
+   "teilnehmer_tabelle": 22,
+   "ort": "Lausanne",
+   "runden": {
+    "finale": 22
+   }
+  },
+  "1990": {
+   "beitraege": 22,
+   "teilnehmer_tabelle": 22,
+   "ort": "Zagreb",
+   "runden": {
+    "finale": 22
+   }
+  },
+  "1991": {
+   "beitraege": 22,
+   "teilnehmer_tabelle": 22,
+   "ort": "Rom",
+   "runden": {
+    "finale": 22
+   }
+  },
+  "1992": {
+   "beitraege": 23,
+   "teilnehmer_tabelle": 23,
+   "ort": "Malmö",
+   "runden": {
+    "finale": 23
+   }
+  },
+  "1993": {
+   "beitraege": 29,
+   "teilnehmer_tabelle": 29,
+   "ort": "Millstreet",
+   "runden": {
+    "finale": 25,
+    "kvalifikacija": 7
+   }
+  },
+  "1994": {
+   "beitraege": 25,
+   "teilnehmer_tabelle": 25,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 25
+   }
+  },
+  "1995": {
+   "beitraege": 23,
+   "teilnehmer_tabelle": 23,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 23
+   }
+  },
+  "1996": {
+   "beitraege": 30,
+   "teilnehmer_tabelle": 30,
+   "ort": "Oslo",
+   "runden": {
+    "vorrunde": 29,
+    "finale": 23
+   }
+  },
+  "1997": {
+   "beitraege": 25,
+   "teilnehmer_tabelle": 25,
+   "ort": "Dublin",
+   "runden": {
+    "finale": 25
+   }
+  },
+  "1998": {
+   "beitraege": 25,
+   "teilnehmer_tabelle": 25,
+   "ort": "Birmingham",
+   "runden": {
+    "finale": 25
+   }
+  },
+  "1999": {
+   "beitraege": 23,
+   "teilnehmer_tabelle": 23,
+   "ort": "Jerusalem",
+   "runden": {
+    "finale": 23
+   }
+  },
+  "2000": {
+   "beitraege": 24,
+   "teilnehmer_tabelle": 24,
+   "ort": "Stockholm",
+   "runden": {
+    "finale": 24
+   }
+  },
+  "2001": {
+   "beitraege": 23,
+   "teilnehmer_tabelle": 23,
+   "ort": "Kopenhagen",
+   "runden": {
+    "finale": 23
+   }
+  },
+  "2002": {
+   "beitraege": 24,
+   "teilnehmer_tabelle": 24,
+   "ort": "Tallinn",
+   "runden": {
+    "finale": 24
+   }
+  },
+  "2003": {
+   "beitraege": 26,
+   "teilnehmer_tabelle": 26,
+   "ort": "Riga",
+   "runden": {
+    "finale": 26
+   }
+  },
+  "2004": {
+   "beitraege": 36,
+   "teilnehmer_tabelle": 36,
+   "ort": "Istanbul",
+   "runden": {
+    "hf": 22,
+    "finale": 24
+   }
+  },
+  "2005": {
+   "beitraege": 39,
+   "teilnehmer_tabelle": 39,
+   "ort": "Kiew",
+   "runden": {
+    "hf": 25,
+    "finale": 24
+   }
+  },
+  "2006": {
+   "beitraege": 37,
+   "teilnehmer_tabelle": 37,
+   "ort": "Athen",
+   "runden": {
+    "hf": 23,
+    "finale": 24
+   }
+  },
+  "2007": {
+   "beitraege": 42,
+   "teilnehmer_tabelle": 42,
+   "ort": "Helsinki",
+   "runden": {
+    "hf": 28,
+    "finale": 24
+   }
+  },
+  "2008": {
+   "beitraege": 43,
+   "teilnehmer_tabelle": 43,
+   "ort": "Belgrad",
+   "runden": {
+    "hf1": 19,
+    "hf2": 19,
+    "finale": 25
+   }
+  },
+  "2009": {
+   "beitraege": 42,
+   "teilnehmer_tabelle": 42,
+   "ort": "Moskau",
+   "runden": {
+    "hf1": 18,
+    "hf2": 19,
+    "finale": 25
+   }
+  },
+  "2010": {
+   "beitraege": 39,
+   "teilnehmer_tabelle": 39,
+   "ort": "Oslo",
+   "runden": {
+    "hf1": 17,
+    "hf2": 17,
+    "finale": 25
+   }
+  },
+  "2011": {
+   "beitraege": 43,
+   "teilnehmer_tabelle": 43,
+   "ort": "Düsseldorf",
+   "runden": {
+    "hf1": 19,
+    "hf2": 19,
+    "finale": 25
+   }
+  },
+  "2012": {
+   "beitraege": 42,
+   "teilnehmer_tabelle": 42,
+   "ort": "Baku",
+   "runden": {
+    "hf1": 18,
+    "hf2": 18,
+    "finale": 26
+   }
+  },
+  "2013": {
+   "beitraege": 39,
+   "teilnehmer_tabelle": 39,
+   "ort": "Malmö",
+   "runden": {
+    "hf1": 16,
+    "hf2": 17,
+    "finale": 26
+   }
+  },
+  "2014": {
+   "beitraege": 37,
+   "teilnehmer_tabelle": 37,
+   "ort": "Kopenhagen",
+   "runden": {
+    "hf1": 16,
+    "hf2": 15,
+    "finale": 26
+   }
+  },
+  "2015": {
+   "beitraege": 40,
+   "teilnehmer_tabelle": 40,
+   "ort": "Wien",
+   "runden": {
+    "hf1": 16,
+    "hf2": 17,
+    "finale": 27
+   }
+  },
+  "2016": {
+   "beitraege": 42,
+   "teilnehmer_tabelle": 42,
+   "ort": "Stockholm",
+   "runden": {
+    "hf1": 18,
+    "hf2": 18,
+    "finale": 26
+   }
+  },
+  "2017": {
+   "beitraege": 42,
+   "teilnehmer_tabelle": 42,
+   "ort": "Kiew",
+   "runden": {
+    "hf1": 18,
+    "hf2": 18,
+    "finale": 26
+   }
+  },
+  "2018": {
+   "beitraege": 43,
+   "teilnehmer_tabelle": 43,
+   "ort": "Lissabon",
+   "runden": {
+    "hf1": 19,
+    "hf2": 18,
+    "finale": 26
+   }
+  },
+  "2019": {
+   "beitraege": 41,
+   "teilnehmer_tabelle": 41,
+   "ort": "Tel Aviv",
+   "runden": {
+    "hf1": 17,
+    "hf2": 18,
+    "finale": 26
+   }
+  },
+  "2020": {
+   "beitraege": 41,
+   "teilnehmer_tabelle": 41,
+   "ort": "Rotterdam",
+   "runden": {}
+  },
+  "2021": {
+   "beitraege": 39,
+   "teilnehmer_tabelle": 39,
+   "ort": "Rotterdam",
+   "runden": {
+    "hf1": 16,
+    "hf2": 17,
+    "finale": 26
+   }
+  },
+  "2022": {
+   "beitraege": 40,
+   "teilnehmer_tabelle": 40,
+   "ort": "Turin",
+   "runden": {
+    "hf1": 17,
+    "hf2": 18,
+    "finale": 25
+   }
+  },
+  "2023": {
+   "beitraege": 37,
+   "teilnehmer_tabelle": 37,
+   "ort": "Liverpool",
+   "runden": {
+    "hf1": 15,
+    "hf2": 16,
+    "finale": 26
+   }
+  },
+  "2024": {
+   "beitraege": 37,
+   "teilnehmer_tabelle": 37,
+   "ort": "Malmö",
+   "runden": {
+    "hf1": 15,
+    "hf2": 16,
+    "finale": 26
+   }
+  },
+  "2025": {
+   "beitraege": 37,
+   "teilnehmer_tabelle": 37,
+   "ort": "Basel",
+   "runden": {
+    "hf1": 15,
+    "hf2": 16,
+    "finale": 26
+   }
+  },
+  "2026": {
+   "beitraege": 35,
+   "teilnehmer_tabelle": 35,
+   "ort": "Wien",
+   "runden": {
+    "hf1": 15,
+    "hf2": 15,
+    "finale": 25
+   }
+  }
+ },
+ "konflikte": [
+  {
+   "id": "1961-FR",
+   "art": "titel",
+   "wikipedia": "Printemps (avril carillonne)",
+   "wikidata": "Nous les amoureux",
+   "qid": "Q107338344"
+  },
+  {
+   "id": "1963-SE",
+   "art": "platz",
+   "wikipedia": 13,
+   "wikidata": 10,
+   "qid": "Q107110544"
+  },
+  {
+   "id": "1973-FR",
+   "art": "titel",
+   "wikipedia": "Sans toi",
+   "wikidata": "Tu te reconnaîtras",
+   "qid": "Q107327240"
+  },
+  {
+   "id": "1978-FR",
+   "art": "titel",
+   "wikipedia": "Il y aura toujours des violons",
+   "wikidata": "Parlez-vous français?",
+   "qid": "Q107235577"
+  },
+  {
+   "id": "1990-NO",
+   "art": "platz",
+   "wikipedia": 21,
+   "wikidata": 8,
+   "qid": "Q107094524"
+  },
+  {
+   "id": "1999-IL",
+   "art": "titel",
+   "wikipedia": "Happy Birthday",
+   "wikidata": "Yom Huledet",
+   "qid": "Q2892645"
+  },
+  {
+   "id": "2006-IS",
+   "art": "titel",
+   "wikipedia": "Congratulations",
+   "wikidata": "Silvía Night",
+   "qid": "Q776899"
+  },
+  {
+   "id": "2008-ES",
+   "art": "titel",
+   "wikipedia": "Baila el Chiki Chiki",
+   "wikidata": "Rodolfo Chikilicuatre",
+   "qid": "Q444864"
+  },
+  {
+   "id": "2013-NO",
+   "art": "platz",
+   "wikipedia": 4,
+   "wikidata": 14,
+   "qid": "Q109325812"
+  },
+  {
+   "id": "2013-CH",
+   "art": "platz",
+   "wikipedia": 13,
+   "wikidata": 14,
+   "qid": "Q109325812"
+  },
+  {
+   "id": "2024-LU",
+   "art": "platz",
+   "wikipedia": 13,
+   "wikidata": 21,
+   "qid": "Q124814370"
+  }
+ ],
+ "luecken": [],
+ "zaehlabweichungen": [],
+ "gesamt": 1841,
+ "status_pruefen": 11,
+ "quelle": {
+  "W+WD": 545,
+  "W": 1296
+ }
+}

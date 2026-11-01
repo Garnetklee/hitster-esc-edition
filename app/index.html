@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hitster ESC Edition</title>
+  <meta name="description" content="Musik-Zeitleistenspiel mit Eurovision-Beiträgen 1956 bis heute – Pass-and-Play auf einem Gerät.">
+  <meta name="theme-color" content="#0b0618">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="on-setup">
+  <!-- Unsichtbarer YouTube-Player: 1x1 px, transparent, außerhalb des Sichtbereichs (nicht display:none) -->
+  <div id="yt-wrap" aria-hidden="true"><div id="yt-player"></div></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
+      <span>Hitster <b>ESC</b> Edition</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-menu" hidden aria-label="Spielmenü">☰</button>
+      <button class="icon-btn" id="btn-info" aria-label="Info und Einstellungen">i</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================= SETUP ================= -->
+    <section id="screen-setup" class="screen">
+      <div class="hero">
+        <svg class="hero-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
+        <div class="hero-text">
+          <h1>Hitster <b>ESC</b> Edition</h1>
+          <div class="hero-sub">made by Finn + Claude</div>
+        </div>
+      </div>
+
+      <div id="loading" class="panel center">Lade Lieder …</div>
+
+      <div id="setup" hidden>
+        <div id="resume-box" class="panel resume" hidden>
+          <div>
+            <strong>Gespeichertes Spiel gefunden</strong>
+            <div class="muted" id="resume-info"></div>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btn-resume">Spiel fortsetzen</button>
+            <button class="btn ghost" id="btn-discard">Verwerfen</button>
+          </div>
+        </div>
+
+        <div id="noid-hint" class="panel warn" hidden></div>
+
+        <div class="panel">
+          <h2>Spieler</h2>
+          <div id="player-list" class="player-list"></div>
+          <div class="row">
+            <button class="btn ghost" id="btn-add-player">+ Spieler</button>
+            <button class="btn ghost" id="btn-remove-player">− Spieler</button>
+          </div>
+          <label class="field">
+            <span>Ziel: Karten in der Zeitleiste</span>
+            <input type="number" id="inp-target" min="3" max="30" value="10" inputmode="numeric">
+          </label>
+        </div>
+
+        <div class="panel">
+          <h2>Lieder-Pool</h2>
+          <div class="radio-grid" id="pool-modes">
+            <label class="chip-radio"><input type="radio" name="pool" value="alle" checked><span>Alle</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="finale"><span>Nur Finale</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="top10"><span>Top 10</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="top3"><span>Top 3</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="sieger"><span>Nur Sieger</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="nul"><span>„Nul points“</span></label>
+            <label class="chip-radio" id="topn-label"><input type="radio" name="pool" value="topn"><span>Top-<input type="number" id="inp-topn" value="100" min="5" max="2000" step="5" aria-label="N"> bekannteste</span></label>
+          </div>
+          <div class="muted small" id="topn-hint" hidden>Noch keine Popularitätsdaten (pop_rang) vorhanden.</div>
+        </div>
+
+        <div class="panel">
+          <h2>Spielmodus</h2>
+          <div class="preset-grid" id="preset-grid"></div>
+        </div>
+
+        <details class="panel advanced" id="advanced">
+          <summary>Erweiterte Einstellungen</summary>
+
+          <h3>Zeitraum</h3>
+          <div class="row years">
+            <label class="field inline"><span>von</span><input type="number" id="inp-from" inputmode="numeric"></label>
+            <label class="field inline"><span>bis</span><input type="number" id="inp-to" inputmode="numeric"></label>
+            <label class="switch"><input type="checkbox" id="chk-2020" checked><span class="slider"></span><span>2020 (abgesagt) einbeziehen</span></label>
+          </div>
+
+          <h3>Länder <span class="muted small" id="country-sel-info"></span></h3>
+          <div class="row quick">
+            <button type="button" class="btn small" data-quick="alle">Alle</button>
+            <button type="button" class="btn small" data-quick="dach">DACH</button>
+            <button type="button" class="btn small" data-quick="skandinavien">Skandinavien</button>
+            <button type="button" class="btn small" data-quick="big5">Big 5</button>
+          </div>
+          <div id="country-chips" class="chips"></div>
+
+          <h3>Land raten</h3>
+          <div class="radio-grid compact">
+            <label class="chip-radio"><input type="radio" name="r-country" value="off"><span>Aus</span></label>
+            <label class="chip-radio"><input type="radio" name="r-country" value="choice"><span>Mit 4 Vorschlägen</span></label>
+            <label class="chip-radio"><input type="radio" name="r-country" value="free"><span>Ohne Vorschläge</span></label>
+          </div>
+
+          <h3>Platzierung</h3>
+          <div class="radio-grid compact">
+            <label class="chip-radio"><input type="radio" name="r-place" value="off"><span>Aus</span></label>
+            <label class="chip-radio"><input type="radio" name="r-place" value="neighbor"><span>Höher/niedriger</span></label>
+            <label class="chip-radio"><input type="radio" name="r-place" value="free"><span>Frei angeben</span></label>
+          </div>
+          <div class="muted small hint" id="place-hint" hidden>Exakt = 2 Bonus, bis zu 2 Plätze daneben = 1 Bonus, richtig getipptes Halbfinal-Aus = 1 Bonus.</div>
+
+          <h3>Punktlandung (genaues Jahr)</h3>
+          <div class="radio-grid compact">
+            <label class="chip-radio"><input type="radio" name="r-exact" value="0"><span>Aus</span></label>
+            <label class="chip-radio"><input type="radio" name="r-exact" value="1"><span>+1 Bonus</span></label>
+            <label class="chip-radio"><input type="radio" name="r-exact" value="2"><span>+2 Bonus</span></label>
+          </div>
+
+          <h3>Was bringen Bonuspunkte?</h3>
+          <div class="radio-grid compact">
+            <label class="chip-radio"><input type="radio" name="r-bonus" value="tokens"><span>Tokens</span></label>
+            <label class="chip-radio"><input type="radio" name="r-bonus" value="count"><span>Nur zählen</span></label>
+            <label class="chip-radio"><input type="radio" name="r-bonus" value="convert"><span>In Karten umwandeln</span></label>
+          </div>
+          <div id="convert-box" hidden>
+            <div class="muted small hint">1 Bonuskarte je … Bonuspunkte:</div>
+            <div class="radio-grid compact" id="convert-opts"></div>
+          </div>
+
+          <h3>Zeitlimit pro Lied</h3>
+          <div class="radio-grid compact" id="limit-opts"></div>
+          <div class="muted small hint">Die Musik pausiert nach dieser Zeit. Weiterhören bleibt kostenlos.</div>
+
+          <h3>Klauen</h3>
+          <label class="switch"><input type="checkbox" id="chk-steal"><span class="slider"></span>
+            <span>Klauen erlauben <small class="muted">(andere Spieler setzen 1 Token auf eine andere Lücke)</small></span></label>
+        </details>
+
+        <div class="start-bar">
+          <div class="pool-count"><b id="pool-count">0</b> Lieder im Pool <span class="muted small" id="pool-need"></span></div>
+          <button class="btn primary big" id="btn-start" disabled>Spiel starten</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SPIEL ================= -->
+    <section id="screen-game" class="screen" hidden>
+      <div id="scoreboard" class="scoreboard"></div>
+      <div id="turn-banner" class="turn-banner"></div>
+      <div id="steal-banner" class="steal-banner" hidden></div>
+      <div class="timeline-wrap">
+        <div id="timeline" class="timeline"></div>
+      </div>
+      <div id="deck" class="deck"></div>
+      <div id="controls" class="controls"></div>
+      <div id="bonus" class="bonus"></div>
+      <div id="reveal" class="reveal" hidden></div>
+    </section>
+
+    <!-- ================= ENDE ================= -->
+    <section id="screen-end" class="screen" hidden>
+      <div class="panel center end">
+        <svg class="end-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
+        <h2 id="end-title">Gewonnen!</h2>
+        <div id="end-ranking"></div>
+        <div class="row center">
+          <button class="btn primary" id="btn-new-game">Neues Spiel</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Dialoge -->
+  <dialog id="dlg-info">
+    <form method="dialog" class="dlg">
+      <h2>Info &amp; Einstellungen</h2>
+      <div id="info-data" class="small"></div>
+      <h3>Abspielfehler <span class="muted small" id="err-count"></span></h3>
+      <div id="err-list" class="err-list small"></div>
+      <div class="row">
+        <button class="btn ghost" type="button" id="btn-clear-errors">Fehler-Log löschen</button>
+        <button class="btn primary" value="close">Schließen</button>
+      </div>
+      <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
+        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Überspringen kostet 1 Token, maximal 5 Tokens.</p>
+      <p class="muted small">Bonus: Land raten, Platzierung und das genaue Jahr bringen je nach Modus Bonuspunkte. Sie werden zu
+        Tokens, zählen nur (★, entscheidet bei Gleichstand) oder werden in Bonuskarten umgewandelt, die zum Ziel zählen.
+        Das genaue Jahr zählt nur, wenn die Karte richtig liegt.</p>
+      <p class="muted small">Klauen (nur wenn eingeschaltet): Ein anderer Spieler setzt 1 Token auf eine andere Lücke. Liegt der
+        aktive Spieler falsch und der Klauende richtig, bekommt dieser die Karte.</p>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-menu">
+    <form method="dialog" class="dlg">
+      <h2>Spielmenü</h2>
+      <div class="col">
+        <button class="btn" value="close">Weiterspielen</button>
+        <button class="btn ghost" type="button" id="btn-end-game">Spiel beenden &amp; Wertung</button>
+        <button class="btn ghost" type="button" id="btn-abort-game">Abbrechen (zurück zum Setup)</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-steal">
+    <form method="dialog" class="dlg">
+      <h2>Wer klaut?</h2>
+      <p class="muted small">Kostet 1 Token. Danach tippt der Klauende eine andere Lücke in der Zeitleiste.</p>
+      <div id="steal-players" class="col"></div>
+      <div class="row"><button class="btn ghost" value="close">Abbrechen</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-timeline">
+    <form method="dialog" class="dlg wide">
+      <h2 id="tl-title"></h2>
+      <div class="timeline-wrap"><div id="tl-view" class="timeline"></div></div>
+      <div class="row"><button class="btn primary" value="close">Schließen</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Herz-Symbol (eigenes Motiv) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#22e6ff"/><stop offset="0.5" stop-color="#8a5cff"/><stop offset="1" stop-color="#ff2fd1"/>
+      </linearGradient>
+      <symbol id="heart" viewBox="0 0 512 512">
+        <path fill="none" stroke="url(#hg)" stroke-width="30" stroke-linejoin="round"
+          d="M256 416 C 196 368 104 300 104 208 C 104 152 146 116 192 116 C 224 116 246 134 256 156 C 266 134 288 116 320 116 C 366 116 408 152 408 208 C 408 300 316 368 256 416 Z"/>
+        <g fill="url(#hg)">
+          <rect x="172" y="236" width="24" height="64" rx="12"/>
+          <rect x="208" y="196" width="24" height="124" rx="12"/>
+          <rect x="244" y="176" width="24" height="160" rx="12"/>
+          <rect x="280" y="212" width="24" height="100" rx="12"/>
+          <rect x="316" y="246" width="24" height="48" rx="12"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
