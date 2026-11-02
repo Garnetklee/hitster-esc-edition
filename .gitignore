@@ -7,4 +7,6 @@ data/raw/
 __pycache__/
 *.pyc
 *.log
-.claude/
+.venv/
+.claude/*
+!.claude/verbesserungen-profil.md

@@ -1,0 +1,61 @@
+==================== Erledigt ====================
+
+✅ erledigt (2026-11-02 01:54) – Ein Spieler Modus ermöglichen. Einfach zweiten Spieler entfernbar machen und dann nur mit sich selber spielen, bis man die eingestellte Kartenanzahl erreicht hat. Bei der Bewertung dann anzeigen wie viele Runden man gebraucht hat
+   → Geht bis 1 Spieler, ohne Klauen. Die Auswertung zeigt „Geschafft in X Runden“.
+
+✅ erledigt (2026-11-02 01:54) – Eine übergreifende Einstellung ist auch der Zeitraum. 2020 soll immer mit einbezogen werden. Schalter dafür ist nicht nötig
+   → Eigener Kasten auf der Startseite, Schalter entfernt. 2020 zählt, solange es im gewählten Zeitraum liegt. Zeitraum und Länder ändern den Modus nicht mehr.
+
+✅ erledigt (2026-11-02 01:54) – Ziel: Karten in der Zeitleiste. Soll abgetrennt als Einstellung stehen. Auswahlfelder: 3, 5, 7, 10, 15. In erweiterte Einstellungen Eingabefeld mit frei wählbarem Feld wie bisher.
+   → Umgesetzt wie beschrieben.
+
+✅ erledigt (2026-11-02 01:54) – Was ist mit diesen Verdachtsfällen? "Ein Teil der älteren Videos sind Uploads von Fans. Vereinzelt ist das gar nicht der ESC-Auftritt, zum Beispiel bei Russland 2000. Die Verdachtsfälle stehen in esc/data/raw/youtube_probleme.txt"
+   → 99 Fälle geprüft, 90 sind in Ordnung (Fan-Upload des echten Auftritts). 9 Videos über data/overrides.csv ersetzt: 1990-CH, 2000-RO, 2000-RU, 2002-DE, 2002-FR, 2003-BA, 2006-IE, 2006-MK, 2018-GB. Alle starten im Player, angehört wurden sie nicht, Finn prüft beim Spielen Inhalt und Startzeit. 1985-LU und 1996-HU bleiben unverändert, sie sind als Fallback ohne Live-Video bekannt.
+
+✅ erledigt (2026-11-02 01:54) – Das Feld zur eingabe des genauen Jahres soll nicht so versteckt sein, sondern im Vordergrund stehen wie alle anderen Eingabefelder darunter auch
+   → Eigener Kasten bei den übrigen Eingabefeldern.
+
+✅ erledigt (2026-11-02 01:54) – Warnung wenn man auflösen möchte, aber noch nicht alle möglichen Felder ausgefüllt hat
+   → Dialog nennt die offenen Felder. Felder, die bei diesem Lied entfallen, zählen nicht.
+
+✅ erledigt (2026-11-02 01:54) – Tokens und Bonuspunkte allgemein überarbeiten:
+Bonuspunkte sind gleich Tokens. Nur noch Tokens nennen, aber Infotext, dass es sozusagen Bonuspunkte sind.
+im Spiel oben deutlich machen, was punkte und was Tokens sind.
+Jeder Spieler hat einen free skip. Danach kostet überspringen einen Token
+   → Umgesetzt. Oben steht „Karten 3/10“ und „Tokens 2,5“. Tokens haben kein Limit mehr und entscheiden bei Kartengleichstand. In Custom entfällt „Nur zählen“, „In Karten umwandeln“ bleibt.
+
+✅ erledigt (2026-11-02 01:54) – Interpret und Titel brignen jeweil einen halben Token. Platzierung bringt bei genau richtig einen token und bei der Toleranz daneben noch einen halben token. Land erraten bringt einen halben Token. Genaues Jahr bringt einen Token und Toleranz daneben einen halben Token.
+   → Umgesetzt mit Toleranz 2 Plätze und 2 Jahre. Das Jahr zählt nur, wenn die Karte richtig liegt. Besser/schlechter und richtig getipptes Halbfinal-Aus bringen je ½ Token.
+
+✅ erledigt (2026-11-02 01:54) – Spielmodi:
+Soll auf der Startseite direkt nach Spielereinstellung kommen
+   → Umgesetzt.
+
+✅ erledigt (2026-11-02 01:54) – Enspannt: Kann so bleiben
+
+Klassisch: Kann so bleiben
+   → Unverändert, nur die Token-Werte sind neu.
+
+✅ erledigt (2026-11-02 01:54) – Die nächsten beiden Modi fallen weg und dafür neu ESC Modus Untertitel: schwerer Modus. Wie klassisch aber noch mit Zeitlimit 20s (kann einmal wie bisher fortgesetzt werden und kostet danach einen halben Token. Warnung vorher einblenden, wenn man token zahlen muss). Dazu direkt am Kasten mit dem Modus schieberegler um einzuschalten: Länderfeld und Platzierung
+   → Umgesetzt. Auch „Neu ab Start“ kostet nach Ablauf der Zeit. Unter ½ Token ist kein Weiterhören möglich, Auflösen geht weiter.
+
+✅ erledigt (2026-11-02 01:54) – ESC Edition Unteretitel: einfacher Modus. (neuer Modus, soll noch vor ESC Modus schwer stehen). wie esc Modus hard mode und auch mit Schiebereglern, aber bei der Länderauswahl sind wird mit 4 vorschlägen gespielt, Platzierung ist nur besser/schlechter, und bei der titel und interpreten Auswahl solles eine Autovervollständigung geben, die nur echte Titel und interpreten vorschlägt.
+Zeitlimit ist 20s aber kann beliebig oft verlängert werden.
+   → Umgesetzt. Freies Tippen bleibt zusätzlich zu den Vorschlägen möglich.
+
+✅ erledigt (2026-11-02 01:54) – Custom: bleibt wie bisher
+   → Bleibt, dazu Schalter für Autovervollständigung, Weiterhören und Umwandeln. Aus der Punktlandung wird Genaues Jahr Aus/An.
+
+✅ erledigt (2026-11-02 01:54) – Auswertung:
+Podium und Feuerwerkseffekt bei Siegerehrung
+   → Umgesetzt. Allein gibt es kein Podium, Feuerwerk nur bei erreichtem Ziel.
+
+✅ erledigt (2026-11-02 01:54) – Der eigene Zeitstrahl mit allen Karten soll unten erscheinen und zurätzlich auch die Karten, die man falsch hatte.
+   → Unter der Rangliste, bei mehreren Spielern mit Auswahl je Spieler.
+
+✅ erledigt (2026-11-02 01:54) – Erweiterte Einstellung:
+Länderauswahl kompakter machen. Zum ausklappen.
+   → Ausklappbar, die Anzahl der gewählten Länder steht daneben.
+
+✅ erledigt (2026-11-02 01:54) – Ganz unten eine neue Statistik Seite zum ausklappen. Suchfeld für Länder. Gibt Anzahl der Teilnahmen zurück und die 5 häufigsten Platzierungen dieses landes. Zum aufklappen Liste ganzer liste wie oft jeder platz belegt wurde.
+   → Eigener Kasten ganz unten. Die Platzierungen zählen nur Finalplätze, „Nicht im Finale“ und „Ohne Wertung“ stehen getrennt daneben.

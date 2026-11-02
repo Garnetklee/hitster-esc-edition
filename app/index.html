@@ -73,10 +73,17 @@
             <button class="btn ghost" id="btn-add-player">+ Spieler</button>
             <button class="btn ghost" id="btn-remove-player">− Spieler</button>
           </div>
-          <label class="field">
-            <span>Ziel: Karten in der Zeitleiste</span>
-            <input type="number" id="inp-target" min="3" max="30" value="10" inputmode="numeric" enterkeyhint="done">
-          </label>
+        </div>
+
+        <div class="panel">
+          <h2>Spielmodus</h2>
+          <div class="preset-grid" id="preset-grid"></div>
+          <div class="muted small hint">Tokens sind sozusagen eure Bonuspunkte: Ihr bekommt sie für richtige Tipps, bezahlt damit zum Beispiel das Überspringen, und bei gleich vielen Karten gewinnt, wer mehr Tokens hat.</div>
+        </div>
+
+        <div class="panel">
+          <h2>Ziel: Karten in der Zeitleiste</h2>
+          <div class="radio-grid" id="target-opts"></div>
         </div>
 
         <div class="panel">
@@ -94,35 +101,39 @@
         </div>
 
         <div class="panel">
-          <h2>Spielmodus</h2>
-          <div class="preset-grid" id="preset-grid"></div>
+          <h2>Zeitraum</h2>
+          <div class="row years">
+            <label class="field inline"><span>von</span><input type="number" id="inp-from" inputmode="numeric" enterkeyhint="done"></label>
+            <label class="field inline"><span>bis</span><input type="number" id="inp-to" inputmode="numeric" enterkeyhint="done"></label>
+          </div>
         </div>
 
         <details class="panel advanced" id="advanced">
           <summary>Erweiterte Einstellungen</summary>
 
-          <h3>Zeitraum</h3>
-          <div class="row years">
-            <label class="field inline"><span>von</span><input type="number" id="inp-from" inputmode="numeric" enterkeyhint="done"></label>
-            <label class="field inline"><span>bis</span><input type="number" id="inp-to" inputmode="numeric" enterkeyhint="done"></label>
-            <label class="switch"><input type="checkbox" id="chk-2020" checked><span class="slider"></span><span>2020 (abgesagt) einbeziehen</span></label>
-          </div>
+          <label class="field">
+            <span>Ziel frei wählen (3 bis 30 Karten)</span>
+            <input type="number" id="inp-target" min="3" max="30" value="10" inputmode="numeric" enterkeyhint="done">
+          </label>
 
-          <h3>Länder <span class="muted small" id="country-sel-info"></span></h3>
-          <div class="row quick">
-            <button type="button" class="btn small" data-quick="alle">Alle</button>
-            <button type="button" class="btn small" data-quick="dach">DACH</button>
-            <button type="button" class="btn small" data-quick="skandinavien">Skandinavien</button>
-            <button type="button" class="btn small" data-quick="big5">Big 5</button>
-          </div>
-          <div id="country-chips" class="chips"></div>
+          <details class="sub-details" id="country-box">
+            <summary>Länder <span class="muted small" id="country-sel-info"></span></summary>
+            <div class="row quick">
+              <button type="button" class="btn small" data-quick="alle">Alle</button>
+              <button type="button" class="btn small" data-quick="dach">DACH</button>
+              <button type="button" class="btn small" data-quick="skandinavien">Skandinavien</button>
+              <button type="button" class="btn small" data-quick="big5">Big 5</button>
+            </div>
+            <div id="country-chips" class="chips"></div>
+          </details>
 
           <h3>Interpret und Titel raten</h3>
-          <label class="switch"><input type="checkbox" id="chk-artist"><span class="slider"></span><span>Interpret raten <small class="muted">(+1 Bonus)</small></span></label>
-          <label class="switch"><input type="checkbox" id="chk-title"><span class="slider"></span><span>Titel raten <small class="muted">(+1 Bonus)</small></span></label>
+          <label class="switch"><input type="checkbox" id="chk-artist"><span class="slider"></span><span>Interpret raten <small class="muted">(½ Token)</small></span></label>
+          <label class="switch"><input type="checkbox" id="chk-title"><span class="slider"></span><span>Titel raten <small class="muted">(½ Token)</small></span></label>
+          <label class="switch"><input type="checkbox" id="chk-suggest"><span class="slider"></span><span>Autovervollständigung <small class="muted">(schlägt echte Interpreten und Titel vor)</small></span></label>
           <div class="muted small hint">Kleine Tippfehler zählen als richtig, teilweise Richtiges wird gelb markiert und bringt nichts.</div>
 
-          <h3>Land raten</h3>
+          <h3>Land raten <span class="muted small">(½ Token)</span></h3>
           <div class="radio-grid compact">
             <label class="chip-radio"><input type="radio" name="r-country" value="off"><span>Aus</span></label>
             <label class="chip-radio"><input type="radio" name="r-country" value="choice"><span>Mit 4 Vorschlägen</span></label>
@@ -135,33 +146,42 @@
             <label class="chip-radio"><input type="radio" name="r-place" value="neighbor"><span>Höher/niedriger</span></label>
             <label class="chip-radio"><input type="radio" name="r-place" value="free"><span>Frei angeben</span></label>
           </div>
-          <div class="muted small hint" id="place-hint" hidden>Exakt = 2 Bonus, bis zu 2 Plätze daneben = 1 Bonus, richtig getipptes Halbfinal-Aus = 1 Bonus.</div>
+          <div class="muted small hint">Frei angeben: exakt 1 Token, bis zu 2 Plätze daneben ½, richtig getipptes Halbfinal-Aus ½. Höher/niedriger: ½ Token.</div>
 
-          <h3>Punktlandung (genaues Jahr)</h3>
+          <h3>Genaues Jahr <span class="muted small">(exakt 1 Token, bis 2 Jahre daneben ½, nur wenn die Karte richtig liegt)</span></h3>
           <div class="radio-grid compact">
             <label class="chip-radio"><input type="radio" name="r-exact" value="0"><span>Aus</span></label>
-            <label class="chip-radio"><input type="radio" name="r-exact" value="1"><span>+1 Bonus</span></label>
-            <label class="chip-radio"><input type="radio" name="r-exact" value="2"><span>+2 Bonus</span></label>
+            <label class="chip-radio"><input type="radio" name="r-exact" value="1"><span>An</span></label>
           </div>
 
-          <h3>Was bringen Bonuspunkte?</h3>
-          <div class="radio-grid compact">
-            <label class="chip-radio"><input type="radio" name="r-bonus" value="tokens"><span>Tokens</span></label>
-            <label class="chip-radio"><input type="radio" name="r-bonus" value="count"><span>Nur zählen</span></label>
-            <label class="chip-radio"><input type="radio" name="r-bonus" value="convert"><span>In Karten umwandeln</span></label>
-          </div>
+          <h3>Tokens in Karten umwandeln</h3>
+          <label class="switch"><input type="checkbox" id="chk-convert"><span class="slider"></span><span>Umwandeln <small class="muted">(Bonuskarten zählen zum Ziel)</small></span></label>
           <div id="convert-box" hidden>
-            <div class="muted small hint">1 Bonuskarte je … Bonuspunkte:</div>
+            <div class="muted small hint">1 Bonuskarte je … Tokens:</div>
             <div class="radio-grid compact" id="convert-opts"></div>
           </div>
 
           <h3>Zeitlimit pro Lied</h3>
           <div class="radio-grid compact" id="limit-opts"></div>
-          <div class="muted small hint">Die Musik pausiert nach dieser Zeit. Weiterhören ist kostenlos und startet die gleiche Zeit neu, beliebig oft.</div>
+          <div class="muted small hint">Die Musik pausiert nach dieser Zeit. Weiterhören startet die gleiche Zeit neu.</div>
+          <div class="radio-grid compact renew-opts">
+            <label class="chip-radio"><input type="radio" name="r-renew" value="free"><span>Weiterhören immer gratis</span></label>
+            <label class="chip-radio"><input type="radio" name="r-renew" value="paid"><span>Einmal gratis, dann ½ Token</span></label>
+          </div>
 
           <h3>Klauen</h3>
           <label class="switch"><input type="checkbox" id="chk-steal"><span class="slider"></span>
             <span>Klauen erlauben <small class="muted">(andere Spieler setzen 1 Token auf eine andere Lücke)</small></span></label>
+        </details>
+
+        <details class="panel advanced" id="stats">
+          <summary>Statistik</summary>
+          <label class="field stats-search">
+            <span>Land suchen</span>
+            <input type="text" id="stats-input" list="stats-countries" autocomplete="off" enterkeyhint="done" placeholder="z. B. Deutschland">
+          </label>
+          <datalist id="stats-countries"></datalist>
+          <div id="stats-result" class="stats-result"></div>
         </details>
 
         <div class="start-bar">
@@ -187,13 +207,23 @@
 
     <!-- ================= ENDE ================= -->
     <section id="screen-end" class="screen" hidden>
+      <canvas id="fireworks" hidden aria-hidden="true"></canvas>
       <div class="panel center end">
-        <svg class="end-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
+        <svg class="end-heart" id="end-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
         <h2 id="end-title">Gewonnen!</h2>
+        <div id="end-sub" class="muted"></div>
+        <div id="end-podium" class="podium"></div>
         <div id="end-ranking"></div>
         <div class="row center">
           <button class="btn primary" id="btn-new-game">Neues Spiel</button>
         </div>
+      </div>
+      <div class="panel end-cards">
+        <div id="end-tabs" class="row center"></div>
+        <h3 id="end-tl-title"></h3>
+        <div class="timeline-wrap"><div id="end-tl" class="timeline"></div></div>
+        <h3 id="end-wrong-title"></h3>
+        <div class="timeline-wrap"><div id="end-wrong" class="timeline"></div></div>
       </div>
     </section>
   </main>
@@ -210,12 +240,10 @@
         <button class="btn primary" value="close">Schließen</button>
       </div>
       <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
-        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Überspringen kostet 1 Token, maximal 5 Tokens.
-        Erreicht jemand das Ziel, spielen die übrigen Spieler die Runde noch zu Ende, damit alle gleich oft dran waren.</p>
-      <p class="muted small">Bonus: Interpret, Titel, Land, Platzierung und das genaue Jahr bringen je nach Modus Bonuspunkte. Sie werden zu
-        Tokens, zählen nur (★, entscheidet bei Gleichstand) oder werden in Bonuskarten umgewandelt, die zum Ziel zählen.
-        Das genaue Jahr zählt nur, wenn die Karte richtig liegt. Beim Auflösen zeigt die linke Karte deine Eingaben in Grün (richtig),
-        Gelb (fast richtig) oder Rot (falsch).</p>
+        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Das erste Überspringen ist gratis, danach kostet es 1 Token.
+        Erreicht jemand das Ziel, spielen die übrigen Spieler die Runde noch zu Ende, damit alle gleich oft dran waren. Allein spielst du, bis du das Ziel erreichst, und siehst am Ende deine Rundenzahl.</p>
+      <p class="muted small">Tokens sind sozusagen die Bonuspunkte: Interpret, Titel und Land bringen je ½ Token. Die Platzierung bringt exakt 1 Token und bis zu 2 Plätze daneben ½, besser/schlechter ½. Das genaue Jahr bringt exakt 1 Token und bis zu 2 Jahre daneben ½, aber nur, wenn die Karte richtig liegt.
+        Bei gleich vielen Karten gewinnt, wer mehr Tokens hat. Beim Auflösen zeigt die linke Karte deine Eingaben in Grün (richtig), Gelb (fast richtig) oder Rot (falsch).</p>
       <p class="muted small">Klauen (nur wenn eingeschaltet): Ein anderer Spieler setzt 1 Token auf eine andere Lücke. Liegt der
         aktive Spieler falsch und der Klauende richtig, bekommt dieser die Karte.</p>
     </form>
@@ -238,6 +266,17 @@
       <p class="muted small">Kostet 1 Token. Danach tippt der Klauende eine andere Lücke in der Zeitleiste.</p>
       <div id="steal-players" class="col"></div>
       <div class="row"><button class="btn ghost" value="close">Abbrechen</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-confirm">
+    <form method="dialog" class="dlg">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="row">
+        <button class="btn ghost" type="button" id="confirm-cancel"></button>
+        <button class="btn primary" type="button" id="confirm-ok"></button>
+      </div>
     </form>
   </dialog>
 

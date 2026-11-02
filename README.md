@@ -11,8 +11,18 @@ Lokal starten:
 python -m http.server 8765 -d app
 ```
 
+Tests der Spiellogik (mit den echten Liedern):
+
+```
+node --test
+```
+
+Für die Datenskripte: `python -m venv .venv`, dann `.venv\Scripts\python.exe -m pip install -r requirements.txt`.
+
 - `app/`: die Web-App, wird bei jedem Push auf `main` veröffentlicht
 - `data/`: Liederliste, Korrekturen in `overrides.csv`
 - `tools/`: Skripte zum Neuaufbau der Daten, Details in `PLAN.md`
+- `tests/`: Tests der Spiellogik
+- `esc-verbesserungen.txt`, `erledigt.txt`: offene Ideen und Erledigtes
 
 Bei Änderungen an App-Dateien `VERSION` in `app/sw.js` erhöhen.

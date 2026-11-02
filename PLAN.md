@@ -147,21 +147,27 @@ Agent-Tool (Subagenten im Hintergrund). Die langen Netzwerkjobs laufen zusätzli
 - GitHub-Pages-Repo anlegen und pushen – erst nach Rückfrage (Inhalt von `esc/app/` ist die Seite).
 - Hinweis: 1993/1996-Vorrunde hat `runde_ende=Vorentscheid` (so in `data/SCHEMA.md` festgelegt).
 
-**Befehle** (PowerShell, im Ordner `esc`)
+**Befehle** (PowerShell, im Projektordner)
 ```
-..\.venv\Scripts\python.exe -m http.server 8765 -d app        # App starten → http://localhost:8765
-..\.venv\Scripts\python.exe tools\01_fetch_wikipedia.py        # Daten neu holen (Cache, --force)
-..\.venv\Scripts\python.exe tools\02_fetch_wikidata.py
-..\.venv\Scripts\python.exe tools\03_merge.py                  # -> data\esc_songs.csv
-..\.venv\Scripts\python.exe tools\04_find_youtube.py           # nur neue/geänderte Beiträge
-..\.venv\Scripts\python.exe tools\05_check_links.py --input data\esc_songs.csv --repair
-..\.venv\Scripts\python.exe tools\06_popularity.py --input data\esc_songs.csv
-..\.venv\Scripts\python.exe tools\03_merge.py                  # Caches in die CSV übernehmen
-..\.venv\Scripts\python.exe tools\07_export_json.py            # + overrides -> data\ und app\data\esc_songs.json
-..\.venv\Scripts\python.exe tools\08_bericht.py                # -> data\BERICHT.md
+.venv\Scripts\python.exe -m http.server 8765 -d app        # App starten → http://localhost:8765
+.venv\Scripts\python.exe tools\01_fetch_wikipedia.py        # Daten neu holen (Cache, --force)
+.venv\Scripts\python.exe tools\02_fetch_wikidata.py
+.venv\Scripts\python.exe tools\03_merge.py                  # -> data\esc_songs.csv
+.venv\Scripts\python.exe tools\04_find_youtube.py           # nur neue/geänderte Beiträge
+.venv\Scripts\python.exe tools\05_check_links.py --input data\esc_songs.csv --repair
+.venv\Scripts\python.exe tools\06_popularity.py --input data\esc_songs.csv
+.venv\Scripts\python.exe tools\03_merge.py                  # Caches in die CSV übernehmen
+.venv\Scripts\python.exe tools\07_export_json.py            # + overrides -> data\ und app\data\esc_songs.json
+.venv\Scripts\python.exe tools\08_bericht.py                # -> data\BERICHT.md
 ```
 Bei Änderungen an App-Dateien `VERSION` in `app/sw.js` erhöhen.
 
 ## Stand Runde 2 (01.11.2026)
 
-Startseite mit Banner, fertigen Modi (Entspannt, Klassisch, Party, ESC-Profi, Custom) und erweiterten Einstellungen. Neu: Klauen als Option, Bonus-Wertung (Tokens, zählen, umwandeln), Land raten ohne Vorschläge, freie Platzierung, Punktlandung, Zeitlimit, Darstellung für Smartphone und Tablet. Regeln und Modi stehen in `app/js/settings.js`. Lautstärke bleibt unverändert. Noch nicht auf GitHub.
+Startseite mit Banner, fertigen Modi (Entspannt, Klassisch, Party, ESC-Profi, Custom) und erweiterten Einstellungen. Neu: Klauen als Option, Bonus-Wertung (Tokens, zählen, umwandeln), Land raten ohne Vorschläge, freie Platzierung, Punktlandung, Zeitlimit, Darstellung für Smartphone und Tablet. Regeln und Modi stehen in `app/js/settings.js`. Lautstärke bleibt unverändert.
+
+## Stand Runde 3 (02.11.2026)
+
+Die Edition ist jetzt ein eigenes Projekt: Der Ordner `Hitster ESC` ist das Repo, mit eigener `.venv` und `requirements.txt`. Pfade weiter oben, die mit `esc/` beginnen, beziehen sich auf den alten Ordner.
+
+Neu: Ein-Spieler-Modus, Modi Entspannt, Klassisch, ESC Edition, ESC Modus und Custom, einheitliche Tokens ohne Obergrenze statt Bonuspunkten, Gratis-Skip, Warnung beim Auflösen, Autovervollständigung, Podium mit Feuerwerk, Zeitleiste und falsche Karten in der Auswertung, Länder-Statistik, Tests mit `node --test`. Regeln und Modi stehen in `app/js/settings.js`, die Token-Werte in `app/js/data.js`. Offene Ideen stehen in `esc-verbesserungen.txt`, Erledigtes in `erledigt.txt`.

@@ -1,23 +1,26 @@
 // Hitster ESC Edition – Hauptmodul (UI + Spielablauf)
 import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
-  QUICK_COUNTRIES, hasVideo, isCancelled, freePlacePoints, matchCountry, matchText, countryOptions,
+  QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
+  fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions,
 } from './data.js';
 import * as YTP from './player.js';
 import {
-  SETTINGS_VERSION, PRESETS, DEFAULT_PRESET, BONUS_TARGETS, TIME_LIMITS, presetById, rulesEqual, migrateSettings, migrateState,
+  SETTINGS_VERSION, PRESETS, DEFAULT_PRESET, CONVERT_TARGETS, TARGET_CHOICES, TIME_LIMITS, presetById, matchingPreset, migrateSettings, migrateState,
 } from './settings.js';
+import { startFireworks } from './fireworks.js';
 
 const KEY_STATE = 'esc_hitster_state';
 const KEY_SETTINGS = 'esc_hitster_settings';
 const KEY_ERRORS = 'esc_hitster_errors';
-const MAX_TOKENS = 5;
 const START_TOKENS = 2;
 const DEV = new URLSearchParams(location.search).get('dev') === '1';
 
 let DATA = { file: '', generiert: '', songs: [] };
 let BY_ID = new Map();
 let COUNTRY_NAMES = new Map(); // ISO -> deutscher Name
+let ARTISTS = []; // alle echten Interpreten für die Autovervollständigung
+let TITLES = [];
 let state = null; // laufendes Spiel
 let stealPick = null; // Index des Spielers, der gerade eine Lücke zum Klauen wählt
 let audioStatus = 'idle'; // idle | loading | playing | paused
@@ -100,7 +103,6 @@ function readFilter() {
     from: parseInt($('#inp-from').value, 10) || setup.minYear,
     to: parseInt($('#inp-to').value, 10) || setup.maxYear,
     toMax: (parseInt($('#inp-to').value, 10) || setup.maxYear) >= setup.maxYear,
-    incl2020: $('#chk-2020').checked,
     countries: [...setup.countries],
   };
 }
@@ -119,9 +121,11 @@ function readRules() {
     exact: parseInt(radioVal('r-exact'), 10) || 0,
     artist: $('#chk-artist').checked,
     title: $('#chk-title').checked,
-    bonus: radioVal('r-bonus') || 'tokens',
+    suggest: $('#chk-suggest').checked,
+    convert: $('#chk-convert').checked,
     convertAt: parseInt(radioVal('r-convert'), 10) || 5,
     timeLimit: parseInt(radioVal('r-limit'), 10) || 0,
+    renew: radioVal('r-renew') || 'free',
   };
 }
 
@@ -132,37 +136,47 @@ function writeRules(r) {
   setRadio('r-exact', r.exact);
   $('#chk-artist').checked = !!r.artist;
   $('#chk-title').checked = !!r.title;
-  setRadio('r-bonus', r.bonus);
+  $('#chk-suggest').checked = !!r.suggest;
+  $('#chk-convert').checked = !!r.convert;
   setRadio('r-convert', r.convertAt);
   setRadio('r-limit', r.timeLimit);
+  setRadio('r-renew', r.renew);
 }
 
-/** Id des passenden Modus oder 'custom'. Zeitraum, 2020 und Länder gehören mit zum Modus. */
+/** Id des passenden Modus oder 'custom'. Zeitraum und Länder gelten für jeden Modus. */
 function currentPreset() {
-  const f = readFilter();
-  if (f.from !== setup.minYear || f.to !== setup.maxYear || !f.incl2020 || f.countries.length) return 'custom';
-  const r = readRules();
-  const hit = PRESETS.find((p) => rulesEqual(r, p.rules));
+  const hit = matchingPreset(readRules());
   return hit ? hit.id : 'custom';
 }
 
+let lastPresetHTML = '';
 function renderPresets() {
   const on = currentPreset();
+  const r = readRules();
   const custom = { id: 'custom', name: 'Custom', desc: 'Eigene Regeln in den erweiterten Einstellungen.' };
-  $('#preset-grid').innerHTML = [...PRESETS, custom].map((p) =>
-    `<button type="button" class="preset ${p.id === on ? 'on' : ''}" data-preset="${p.id}" aria-pressed="${p.id === on}">
-      <span class="preset-name">${esc(p.name)}</span><span class="preset-desc">${esc(p.desc)}</span>
-    </button>`).join('');
+  const toggle = (p, key, label) => `<label class="switch mini"><input type="checkbox" data-preset="${p.id}" data-toggle="${key}" ${p.id === on && r[key] !== 'off' ? 'checked' : ''}><span class="slider"></span><span>${label}</span></label>`;
+  const html = [...PRESETS, custom].map((p) =>
+    `<div class="preset ${p.id === on ? 'on' : ''}" data-preset="${p.id}">
+      <button type="button" class="preset-main" data-preset="${p.id}" aria-pressed="${p.id === on}">
+        <span class="preset-name">${esc(p.name)}</span>${p.sub ? `<span class="preset-sub">${esc(p.sub)}</span>` : ''}<span class="preset-desc">${esc(p.desc)}</span>
+      </button>
+      ${p.toggles ? `<div class="preset-toggles">${toggle(p, 'country', 'Länderfeld')}${toggle(p, 'place', 'Platzierung')}</div>` : ''}
+    </div>`).join('');
+  if (html === lastPresetHTML) return; // sonst verlieren die Regler bei jeder Eingabe den Fokus
+  lastPresetHTML = html;
+  $('#preset-grid').innerHTML = html;
 }
 
 function applyPreset(id) {
+  if (id === currentPreset()) return;
   writeRules(presetById(id).rules);
-  $('#inp-from').value = setup.minYear;
-  $('#inp-to').value = setup.maxYear;
-  $('#chk-2020').checked = true;
-  setup.countries = new Set();
-  renderCountryChips();
   updateCount();
+}
+
+/** Ziel-Auswahl an das freie Feld anpassen, bei einem anderen Wert ist keine Auswahl markiert. */
+function syncTarget() {
+  const v = $('#inp-target').value;
+  $$('input[name=target]').forEach((r) => { r.checked = r.value === v; });
 }
 
 function renderPlayerInputs() {
@@ -171,7 +185,7 @@ function renderPlayerInputs() {
     `<label class="player-input"><span class="pnum">${i + 1}</span><input type="text" maxlength="16" value="${esc(n)}" data-i="${i}" aria-label="Name Spieler ${i + 1}" enterkeyhint="done"></label>`).join('');
   $$('input', box).forEach((inp) => inp.addEventListener('input', () => { setup.names[+inp.dataset.i] = inp.value; updateCount(); }));
   $('#btn-add-player').disabled = setup.names.length >= 8;
-  $('#btn-remove-player').disabled = setup.names.length <= 2;
+  $('#btn-remove-player').disabled = setup.names.length <= 1;
 }
 
 function renderCountryChips() {
@@ -191,14 +205,13 @@ function updateCount() {
   $('#btn-start').disabled = n < need;
   $('.pool-count').classList.toggle('low', n < need);
   const r = readRules();
-  $('#convert-box').hidden = r.bonus !== 'convert';
-  $('#place-hint').hidden = r.place !== 'free';
+  $('#convert-box').hidden = !r.convert;
   renderPresets();
 }
 
 function applySettings(st) {
   if (!st) return;
-  if (Array.isArray(st.players) && st.players.length >= 2) setup.names = st.players.slice(0, 8);
+  if (Array.isArray(st.players) && st.players.length >= 1) setup.names = st.players.slice(0, 8);
   if (st.target) $('#inp-target').value = st.target;
   const f = st.filter || {};
   if (f.mode) { const r = $(`input[name=pool][value="${f.mode}"]`); if (r && !r.disabled) r.checked = true; }
@@ -206,7 +219,6 @@ function applySettings(st) {
   if (f.from) $('#inp-from').value = f.from;
   // "bis" am alten Datenende gespeichert -> mit neuen Daten bis zum neuen Ende
   if (f.to && !f.toMax) $('#inp-to').value = Math.min(f.to, setup.maxYear);
-  $('#chk-2020').checked = !!f.incl2020;
   setup.countries = new Set((f.countries || []).filter((c) => COUNTRY_NAMES.has(c)));
   if (st.rules) writeRules(st.rules);
 }
@@ -226,12 +238,15 @@ function initSetup() {
   $('#topn-label').classList.toggle('disabled', !setup.hasPop);
   $('#topn-hint').hidden = setup.hasPop;
 
-  $('#convert-opts').innerHTML = BONUS_TARGETS.map((n) =>
+  $('#target-opts').innerHTML = TARGET_CHOICES.map((n) =>
+    `<label class="chip-radio"><input type="radio" name="target" value="${n}"><span>${n}</span></label>`).join('');
+  $('#convert-opts').innerHTML = CONVERT_TARGETS.map((n) =>
     `<label class="chip-radio"><input type="radio" name="r-convert" value="${n}"><span>${n}</span></label>`).join('');
   $('#limit-opts').innerHTML = TIME_LIMITS.map((n) =>
     `<label class="chip-radio"><input type="radio" name="r-limit" value="${n}"><span>${n ? `${n} s` : 'Aus'}</span></label>`).join('');
   writeRules(presetById(DEFAULT_PRESET).rules);
   applySettings(migrateSettings(store.get(KEY_SETTINGS)));
+  syncTarget();
   renderPlayerInputs();
   renderCountryChips();
 
@@ -246,16 +261,29 @@ function initSetup() {
   }
 
   $('#btn-add-player').onclick = () => { if (setup.names.length < 8) { setup.names.push(`Spieler ${setup.names.length + 1}`); renderPlayerInputs(); updateCount(); } };
-  $('#btn-remove-player').onclick = () => { if (setup.names.length > 2) { setup.names.pop(); renderPlayerInputs(); updateCount(); } };
+  $('#btn-remove-player').onclick = () => { if (setup.names.length > 1) { setup.names.pop(); renderPlayerInputs(); updateCount(); } };
   $('#setup').addEventListener('input', updateCount);
   $('#setup').addEventListener('change', updateCount);
   $('#preset-grid').addEventListener('click', (e) => {
-    const b = e.target.closest('.preset'); if (!b) return;
+    const b = e.target.closest('.preset-main'); if (!b) return;
     if (b.dataset.preset === 'custom') {
       $('#advanced').open = true;
       $('#advanced').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else applyPreset(b.dataset.preset);
   });
+  // Läuft vor dem input-Listener von #setup, der die Karten danach neu zeichnet
+  $('#preset-grid').addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t.dataset.toggle) return;
+    const p = presetById(t.dataset.preset);
+    const r = currentPreset() === p.id ? readRules() : { ...p.rules };
+    r[t.dataset.toggle] = t.checked ? p.toggles[t.dataset.toggle] : 'off';
+    writeRules(r);
+  });
+  $('#target-opts').addEventListener('change', (e) => { $('#inp-target').value = e.target.value; });
+  $('#inp-target').addEventListener('input', syncTarget);
+  $('#stats-countries').innerHTML = [...COUNTRY_NAMES.values()].sort((a, b) => a.localeCompare(b, 'de')).map((n) => `<option value="${esc(n)}"></option>`).join('');
+  $('#stats-input').addEventListener('input', renderStats);
   $('#inp-topn').addEventListener('focus', () => { if (setup.hasPop) $('input[name=pool][value=topn]').checked = true; updateCount(); });
   $('#country-chips').addEventListener('click', (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
@@ -288,8 +316,8 @@ const S = (id) => BY_ID.get(id);
 const activeP = () => state.players[state.active];
 const tlSongs = (p) => p.timeline.map(S).filter(Boolean);
 const rules = () => state.settings.rules;
-const bonusCards = (p) => (rules().bonus === 'convert' ? Math.floor(p.bonus / rules().convertAt) : 0);
-const score = (p) => p.timeline.length + bonusCards(p);
+const score = (p) => p.timeline.length + p.bonusCards;
+const isSolo = () => state.players.length === 1;
 function pool() { return state ? filterPool(DATA.songs, state.settings.filter, DEV) : filterPool(DATA.songs, readFilter(), DEV); }
 
 function draw() {
@@ -315,6 +343,7 @@ function newTurn(song) {
     heard: 0,
     timeUp: false,
     released: false,
+    renewals: 0,
     result: null,
   };
 }
@@ -329,7 +358,7 @@ function startGame() {
     rules: readRules(),
   };
   store.set(KEY_SETTINGS, settings);
-  state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonus: 0 })), active: 0, round: 1, used: [], cur: null, finished: false };
+  state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [] })), active: 0, round: 1, used: [], cur: null, finished: false };
   for (const p of state.players) {
     const s = draw();
     if (s) p.timeline.push(s.id);
@@ -375,7 +404,7 @@ function loadAudio(tryAutoplay) {
 function replaceSong(reason) {
   // Lied ersetzen (Fehler/Überspringen): Klau-Token zurück, Rest der Runde neu
   const c = state.cur;
-  if (c.steal) state.players[c.steal.p].tokens = Math.min(MAX_TOKENS, state.players[c.steal.p].tokens + 1);
+  if (c.steal) state.players[c.steal.p].tokens += 1;
   startTurn();
   if (reason) toast(reason);
 }
@@ -408,9 +437,11 @@ function placeNeighbor() {
 
 function skip() {
   const p = activeP();
-  if (state.cur.phase !== 'listen' || p.tokens < 1) return;
-  p.tokens -= 1;
-  replaceSong(`${p.name} überspringt (−1 Token).`);
+  const cost = skipCost(p);
+  if (state.cur.phase !== 'listen' || p.tokens < cost) return;
+  if (cost) p.tokens -= cost;
+  else p.freeSkips -= 1;
+  replaceSong(`${p.name} überspringt (${cost ? '−1 Token' : 'gratis'}).`);
 }
 
 function eligibleStealers() {
@@ -421,7 +452,7 @@ function openSteal() {
   const list = eligibleStealers();
   if (!list.length) { toast('Niemand hat ein Token zum Klauen.'); return; }
   $('#steal-players').innerHTML = list.map(({ p, i }) =>
-    `<button type="button" class="btn" data-i="${i}">${esc(p.name)} <span class="muted">(${p.tokens} Token)</span></button>`).join('');
+    `<button type="button" class="btn" data-i="${i}">${esc(p.name)} <span class="muted">(${tokenLabel(p.tokens)})</span></button>`).join('');
   $$('#steal-players button').forEach((b) => b.addEventListener('click', () => {
     stealPick = +b.dataset.i;
     $('#dlg-steal').close();
@@ -441,6 +472,48 @@ function setSteal(g) {
   stealPick = null;
   toast(`${sp.name} klaut (−1 Token).`);
   save(); render();
+}
+
+/** Ja/Nein-Dialog, liefert true bei Bestätigung. */
+function confirmDlg(title, text, okLabel, cancelLabel) {
+  return new Promise((resolve) => {
+    const d = $('#dlg-confirm');
+    $('#confirm-title').textContent = title;
+    $('#confirm-text').textContent = text;
+    $('#confirm-ok').textContent = okLabel;
+    $('#confirm-cancel').textContent = cancelLabel;
+    // Ergebnis direkt melden: Das close-Ereignis kommt erst mit dem nächsten Frame, im Hintergrund also gar nicht
+    const finish = (answer) => { d.close(); resolve(answer); };
+    $('#confirm-ok').onclick = () => finish(true);
+    $('#confirm-cancel').onclick = () => finish(false);
+    d.oncancel = (e) => { e.preventDefault(); finish(false); };
+    d.showModal();
+  });
+}
+
+/** Felder, die in diesem Zug möglich wären, aber noch leer sind. */
+function missingFields(c) {
+  const R = rules();
+  const song = S(c.songId);
+  const list = [];
+  if (R.exact > 0 && !String(c.exact).trim()) list.push('Genaues Jahr');
+  if (R.artist && !c.artistTip.trim()) list.push('Interpret');
+  if (R.title && !c.titleTip.trim()) list.push('Titel');
+  if (R.country === 'choice' && !c.country.guess) list.push('Land');
+  if (R.country === 'free' && !c.country.text.trim()) list.push('Land');
+  if (relRank(song) !== null) {
+    if (R.place === 'free' && !c.place.hf && !String(c.place.free).trim()) list.push('Platzierung');
+    if (R.place === 'neighbor' && placeNeighbor() && !c.place.guess) list.push('Platzierung');
+  }
+  return list;
+}
+
+async function tryReveal() {
+  const c = state.cur;
+  if (c.phase !== 'listen' || c.gap === null) return;
+  const missing = missingFields(c);
+  if (missing.length && !await confirmDlg('Noch nicht alles ausgefüllt', `Offen: ${missing.join(', ')}. Dafür gibt es dann keine Tokens.`, 'Trotzdem auflösen', 'Zurück')) return;
+  reveal();
 }
 
 function reveal() {
@@ -463,19 +536,19 @@ function reveal() {
     const nb = S(c.place.neighborId);
     const better = relRank(song) < relRank(nb);
     placeOk = (c.place.guess === 'besser') === better;
-    placePts = placeOk ? 1 : 0;
+    placePts = neighborTokens(placeOk);
   }
   if (R.place === 'free' && relRank(song) !== null && (c.place.hf || c.place.free !== '')) {
-    placePts = freePlacePoints(song, c.place);
+    placePts = placeTokens(song, c.place);
     placeOk = placePts > 0;
   }
   const exactYear = parseInt(c.exact, 10);
   const exactOk = R.exact > 0 && !isNaN(exactYear) ? correct && exactYear === song.jahr : null;
+  const yearPts = R.exact > 0 ? yearTokens(exactYear, song.jahr, correct) : 0;
   const artistState = R.artist ? matchText(c.artistTip, song.interpret) : null;
   const titleState = R.title ? matchText(c.titleTip, song.titel) : null;
-  const pts = (countryOk ? 1 : 0) + placePts + (exactOk ? R.exact : 0)
-    + (artistState === 'ok' ? 1 : 0) + (titleState === 'ok' ? 1 : 0);
-  const gain = applyBonus(p, pts);
+  const pts = tokenPoints({ countryOk, artistState, titleState, placePts, yearPts });
+  const gain = applyTokens(p, pts, R);
   const tips = guessFields(c);
   const guess = {};
   if (!isNaN(exactYear) && R.exact > 0) {
@@ -486,11 +559,12 @@ function reveal() {
   if (artistState) guess.artist = { tip: tips.artist, state: artistState };
   if (titleState) guess.title = { tip: tips.title, state: titleState };
   if (placeOk !== null) {
-    const near = R.place === 'free' && !c.place.hf && placePts === 1;
+    const near = R.place === 'free' && !c.place.hf && placePts === 0.5;
     guess.place = { tip: tips.place, state: near ? 'near' : placeOk ? 'ok' : 'bad' };
   }
 
   let stolenBy = null;
+  if (!correct) p.wrong.push(song.id);
   if (correct) {
     p.timeline.splice(c.gap, 0, song.id);
   } else if (c.steal && stealOk) {
@@ -499,7 +573,7 @@ function reveal() {
     sp.timeline.splice(sortedIndex(stl, song.jahr), 0, song.id);
     stolenBy = c.steal.p;
   }
-  c.result = { correct, stealOk, countryOk, placeOk, placePts, exactOk, artistState, titleState, guess, pts, gain, stolenBy };
+  c.result = { correct, stealOk, countryOk, placeOk, placePts, exactOk, yearPts, artistState, titleState, guess, pts, gain, stolenBy };
   c.phase = 'reveal';
   save(); render();
   if (correct) scrollToCard(song.id);
@@ -507,20 +581,6 @@ function reveal() {
 
 const nextPlayer = () => (state.active + 1) % state.players.length;
 const targetReached = () => state.players.some((p) => score(p) >= state.settings.target);
-
-/** Bonuspunkte verbuchen. Gibt zurück, was tatsächlich dazukam. */
-function applyBonus(p, pts) {
-  const R = rules();
-  if (!pts) return { tokens: 0, cards: 0 };
-  if (R.bonus === 'tokens') {
-    const before = p.tokens;
-    p.tokens = Math.min(MAX_TOKENS, p.tokens + pts);
-    return { tokens: p.tokens - before, cards: 0 };
-  }
-  const before = bonusCards(p);
-  p.bonus += pts;
-  return { tokens: 0, cards: bonusCards(p) - before };
-}
 
 function nextTurn() {
   const next = nextPlayer();
@@ -537,18 +597,51 @@ function endGame() {
   save();
   store.del(KEY_STATE);
   const target = state.settings.target;
-  const ranking = state.players.map((p, i) => ({ ...p, i, sc: score(p), bc: bonusCards(p) }))
-    .sort((a, b) => b.sc - a.sc || b.bonus - a.bonus || b.tokens - a.tokens);
+  const solo = isSolo();
+  const ranking = state.players.map((p, i) => ({ ...p, i, sc: score(p) })).sort((a, b) => b.sc - a.sc || b.tokens - a.tokens);
+  ranking.forEach((r, n) => {
+    const prev = ranking[n - 1];
+    r.rank = prev && prev.sc === r.sc && prev.tokens === r.tokens ? prev.rank : n + 1;
+  });
   const top = ranking[0];
-  const winners = ranking.filter((r) => r.sc === top.sc && r.bonus === top.bonus && r.tokens === top.tokens);
-  $('#end-title').textContent = winners.length > 1
-    ? `Unentschieden: ${winners.map((w) => w.name).join(' & ')}`
-    : `${top.name} gewinnt${top.sc >= target ? '!' : ' (meiste Karten)'}`;
-  $('#end-ranking').innerHTML = `<ol class="ranking">${ranking.map((r) =>
-    `<li><span class="r-name">${esc(r.name)}</span><span class="r-cards">${r.timeline.length} Karten${r.bc ? ` + ${r.bc} Bonuskarte${r.bc > 1 ? 'n' : ''}` : ''}</span>${rules().bonus === 'tokens' ? '' : `<span class="r-star">★ ${r.bonus}</span>`}<span class="tokens">${tokensHTML(r.tokens)}</span>
-      <button class="btn small ghost" data-tl="${r.i}">Zeitleiste</button></li>`).join('')}</ol>`;
-  $$('#end-ranking [data-tl]').forEach((b) => b.addEventListener('click', () => showTimeline(+b.dataset.tl)));
+  const winners = ranking.filter((r) => r.rank === 1);
+  const rounds = `${state.round} ${state.round === 1 ? 'Runde' : 'Runden'}`;
+  const cardsText = (r) => `${r.timeline.length} ${r.timeline.length === 1 ? 'Karte' : 'Karten'}${r.bonusCards ? ` + ${r.bonusCards} Bonuskarte${r.bonusCards > 1 ? 'n' : ''}` : ''}`;
+  if (solo) {
+    $('#end-title').textContent = top.sc >= target ? `Geschafft in ${rounds}!` : `${top.sc} von ${target} Karten nach ${rounds}`;
+    $('#end-sub').textContent = `${cardsText(top)}, ${tokenLabel(top.tokens)} übrig`;
+  } else {
+    $('#end-title').textContent = winners.length > 1
+      ? `Unentschieden: ${winners.map((w) => w.name).join(' & ')}`
+      : `${top.name} gewinnt${top.sc >= target ? '!' : ' (meiste Karten)'}`;
+    $('#end-sub').textContent = '';
+  }
+  $('#end-heart').style.display = solo ? '' : 'none';
+  const podium = [ranking[1], ranking[0], ranking[2]].filter(Boolean);
+  $('#end-podium').innerHTML = solo ? '' : podium.map((r) =>
+    `<div class="podium-step rank-${r.rank}">
+      <div class="podium-name">${r.rank === 1 ? '👑 ' : ''}${esc(r.name)}</div>
+      <div class="podium-score">${r.sc} ${r.sc === 1 ? 'Karte' : 'Karten'} · ${tokenLabel(r.tokens)}</div>
+      <div class="podium-block">${r.rank}</div>
+    </div>`).join('');
+  $('#end-ranking').innerHTML = solo ? '' : `<ol class="ranking">${ranking.map((r) =>
+    `<li value="${r.rank}"><span class="r-name">${esc(r.name)}</span><span class="r-cards">${cardsText(r)}</span><span class="r-tokens">${tokenLabel(r.tokens)}</span></li>`).join('')}</ol>`;
+  $('#end-tabs').innerHTML = solo ? '' : ranking.map((r) => `<button type="button" class="btn small ghost" data-end="${r.i}">${esc(r.name)}</button>`).join('');
+  $$('#end-tabs [data-end]').forEach((b) => b.addEventListener('click', () => showEndCards(+b.dataset.end)));
+  showEndCards(top.i);
   showScreen('end');
+  if (!solo || top.sc >= target) startFireworks($('#fireworks'));
+}
+
+/** Zeitleiste und falsch geratene Karten eines Spielers in der Auswertung. */
+function showEndCards(i) {
+  const p = state.players[i];
+  $('#end-tl-title').textContent = `Zeitleiste von ${p.name} (${p.timeline.length} ${p.timeline.length === 1 ? 'Karte' : 'Karten'})`;
+  $('#end-tl').innerHTML = tlSongs(p).map((s) => cardHTML(s)).join('');
+  const wrong = p.wrong.map(S).filter(Boolean).sort((a, b) => a.jahr - b.jahr);
+  $('#end-wrong-title').textContent = `Falsch geraten (${wrong.length})`;
+  $('#end-wrong').innerHTML = wrong.map((s) => cardHTML(s, 'wrong')).join('') || '<div class="muted">Keine falschen Karten.</div>';
+  $$('#end-tabs [data-end]').forEach((b) => b.classList.toggle('on', +b.dataset.end === i));
 }
 
 /* ------------------------------------------------------------------ Rendern */
@@ -558,8 +651,6 @@ function showScreen(name) {
   document.body.classList.toggle('on-setup', name === 'setup');
   window.scrollTo(0, 0);
 }
-
-const tokensHTML = (n) => `<span class="tok-dots" title="${n} Token">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(Math.max(0, MAX_TOKENS - n))}</span>`;
 
 /** Nur die eigenen Eingaben, egal ob richtig oder falsch. */
 function guessFields(c) {
@@ -626,29 +717,14 @@ function youtubeLink(id) {
   return { href: https, target: ' target="_blank" rel="noopener"' };
 }
 
-function starHTML(p) {
-  const R = rules();
-  if (R.bonus === 'count') return `<span class="s-star">★ <b>${p.bonus}</b></span>`;
-  if (R.bonus === 'convert') return `<span class="s-star">★ <b>${p.bonus % R.convertAt}</b>/${R.convertAt}</span>`;
-  return '';
-}
-
 function render() {
   if (!state || !state.cur) return;
   const c = state.cur;
   const p = activeP();
-  const target = state.settings.target;
 
-  $('#scoreboard').innerHTML = state.players.map((pl, i) =>
-    `<button class="score ${i === state.active ? 'active' : ''}" data-i="${i}">
-      <span class="s-name">${esc(pl.name)}</span>
-      <span class="s-cards"><b>${score(pl)}</b>/${target}${bonusCards(pl) ? ` <small>(${bonusCards(pl)} Bonus)</small>` : ''}</span>
-      ${starHTML(pl)}
-      ${tokensHTML(pl.tokens)}
-    </button>`).join('');
-  $$('#scoreboard .score').forEach((b) => b.addEventListener('click', () => showTimeline(+b.dataset.i)));
+  renderScoreboard();
 
-  $('#turn-banner').innerHTML = `<span class="tb-name">${esc(p.name)}</span> ist dran <span class="muted small">· Runde ${state.round}${DEV ? ' · Dev-Modus' : ''}</span>${targetReached() ? ' <span class="last-round">Letzte Runde</span>' : ''}`;
+  $('#turn-banner').innerHTML = `<span class="tb-name">${esc(p.name)}</span> ist dran <span class="muted small">· Runde ${state.round}${DEV ? ' · Dev-Modus' : ''}</span>${targetReached() && !isSolo() ? ' <span class="last-round">Letzte Runde</span>' : ''}`;
 
   const sb = $('#steal-banner');
   if (stealPick !== null) {
@@ -665,6 +741,17 @@ function render() {
   renderControls();
   renderBonus();
   renderReveal();
+}
+
+function renderScoreboard() {
+  const target = state.settings.target;
+  $('#scoreboard').innerHTML = state.players.map((pl, i) =>
+    `<button class="score ${i === state.active ? 'active' : ''}" data-i="${i}">
+      <span class="s-name">${esc(pl.name)}</span>
+      <span class="s-cards">Karten <b>${score(pl)}</b>/${target}${pl.bonusCards ? ` <small>(${pl.bonusCards} Bonus)</small>` : ''}</span>
+      <span class="s-tokens">Tokens <b>${fmtTokens(pl.tokens)}</b></span>
+    </button>`).join('');
+  $$('#scoreboard .score').forEach((b) => b.addEventListener('click', () => showTimeline(+b.dataset.i)));
 }
 
 function renderTimeline() {
@@ -728,17 +815,21 @@ function renderControls() {
   const hasAudio = !!song.youtube_id;
   const R = rules();
   const canSteal = c.gap !== null && !c.steal && stealPick === null && eligibleStealers().length > 0;
+  const showSteal = R.steal && !isSolo();
+  const cost = skipCost(p);
+  const locked = limitLocked(c);
   const limited = R.timeLimit > 0 && !c.released;
   const limitBar = limited && hasAudio
     ? `<div class="limit ${c.timeUp ? 'up' : ''}"><div class="limit-bar"><i id="limit-fill" style="width:${limitPercent(c)}%"></i></div><span id="limit-text">${limitText(c)}</span></div>`
     : '';
   el.innerHTML = `
     <div class="row player-row">
-      <button class="btn play big" id="btn-play" ${hasAudio ? '' : 'disabled'}>${playLabel()}</button>
-      <button class="btn" id="btn-restart" ${hasAudio ? '' : 'disabled'}>↺ Neu ab Start</button>
+      <button class="btn play big" id="btn-play" ${hasAudio && !locked ? '' : 'disabled'}>${playLabel()}</button>
+      <button class="btn" id="btn-restart" ${hasAudio && !locked ? '' : 'disabled'}>↺ Neu ab Start</button>
       <button class="btn" id="btn-show-player" ${hasAudio ? '' : 'disabled'} aria-label="Player einblenden, zum Beispiel bei Werbung" title="Player einblenden, zum Beispiel bei Werbung">📺</button>
     </div>
     ${limitBar}
+    ${locked ? '<div class="muted small">Zu wenig Tokens zum Weiterhören. Du kannst trotzdem auflösen.</div>' : ''}
     <div class="stall" id="stall" ${c.stalled ? '' : 'hidden'}>
       <span>Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.</span>
       <div class="row">
@@ -747,44 +838,39 @@ function renderControls() {
       </div>
     </div>
     <div class="row action-row">
-      <button class="btn ghost" id="btn-skip" ${p.tokens >= 1 ? '' : 'disabled'}>Überspringen <small>(1 Token)</small></button>
-      ${R.steal ? `<button class="btn ghost" id="btn-steal" ${canSteal ? '' : 'disabled'}>Klauen…</button>` : ''}
-      ${R.exact > 0 ? `<label class="exact"><span>Genaues Jahr <small>(+${R.exact} Bonus)</small></span><input type="number" id="inp-exact" inputmode="numeric" min="1956" max="2100" placeholder="optional" enterkeyhint="done" value="${esc(c.exact)}"></label>` : ''}
+      <button class="btn ghost" id="btn-skip" ${p.tokens >= cost ? '' : 'disabled'}>Überspringen <small>(${cost ? '1 Token' : 'gratis'})</small></button>
+      ${showSteal ? `<button class="btn ghost" id="btn-steal" ${canSteal ? '' : 'disabled'}>Klauen…</button>` : ''}
       <button class="btn primary big" id="btn-reveal" ${c.gap !== null ? '' : 'disabled'}>Auflösen</button>
     </div>`;
-  $('#btn-play').onclick = () => {
-    if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
-    renewLimit();
+  $('#btn-play').onclick = () => withRenewal(() => {
     if (audioStatus === 'idle' || audioStatus === 'paused') setAudioStatus('loading');
     YTP.toggle();
-  };
-  $('#btn-restart').onclick = () => {
-    if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
-    renewLimit();
+  });
+  $('#btn-restart').onclick = () => withRenewal(() => {
     setAudioStatus('loading');
     YTP.restart();
-  };
+  });
   $('#btn-skip').onclick = skip;
   $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
   $('#btn-show-player').onclick = showPlayer;
   $('#btn-stall-player').onclick = showPlayer;
-  if (R.steal) $('#btn-steal').onclick = openSteal;
-  if (R.exact > 0) $('#inp-exact').addEventListener('input', (e) => { c.exact = e.target.value; save(); updateGuessPreview(); });
-  $('#btn-reveal').onclick = reveal;
+  if (showSteal) $('#btn-steal').onclick = openSteal;
+  $('#btn-reveal').onclick = tryReveal;
 }
 
-function bonusHint() {
-  return rules().bonus === 'tokens' ? '+1 Token' : '+1 Bonus';
+function yearBoxHTML(c) {
+  return `<div class="bonus-box"><div class="bonus-q">Genaues Jahr <small class="muted">(exakt 1 Token, bis 2 daneben ½, Karte muss richtig liegen)</small></div>
+    <input type="number" class="free-input" id="inp-exact" inputmode="numeric" min="1956" max="2100" placeholder="Jahr" aria-label="Genaues Jahr" enterkeyhint="done" value="${esc(c.exact)}"></div>`;
 }
 
 function countryBoxHTML(c, R) {
   if (R.country === 'choice') {
-    return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(${bonusHint()})</small></div><div class="opts">${
+    return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(½ Token)</small></div><div class="opts">${
       c.country.options.map((iso) => `<button class="opt ${c.country.guess === iso ? 'sel' : ''}" data-country="${iso}">${flagHTML(iso)}<span>${esc(COUNTRY_NAMES.get(iso) || iso)}</span></button>`).join('')
     }</div></div>`;
   }
   const names = [...COUNTRY_NAMES.values()].sort((x, y) => x.localeCompare(y, 'de'));
-  return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(${bonusHint()})</small></div>
+  return `<div class="bonus-box"><div class="bonus-q">Land raten <small class="muted">(½ Token)</small></div>
     <input type="text" class="free-input" id="inp-country" list="country-list" autocomplete="off" enterkeyhint="done" placeholder="Land eingeben" value="${esc(c.country.text)}">
     <datalist id="country-list">${names.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>`;
 }
@@ -798,7 +884,7 @@ function placeBoxHTML(c, R) {
           <input type="number" class="free-input" id="inp-place" inputmode="numeric" min="1" max="40" placeholder="Platz im Finale" enterkeyhint="done" value="${esc(c.place.free)}" ${c.place.hf ? 'disabled' : ''}>
           <button type="button" class="opt ${c.place.hf ? 'sel' : ''}" id="btn-hf">Im Halbfinale raus</button>
         </div>`;
-    return `<div class="bonus-box"><div class="bonus-q">Platzierung <small class="muted">(exakt +2, bis 2 daneben +1)</small></div>${inner}</div>`;
+    return `<div class="bonus-box"><div class="bonus-q">Platzierung <small class="muted">(exakt 1 Token, bis 2 daneben ½)</small></div>${inner}</div>`;
   }
   let inner;
   if (c.gap === null) inner = '<div class="muted small">Lege zuerst die Karte ab.</div>';
@@ -816,14 +902,36 @@ function placeBoxHTML(c, R) {
         </div>`;
     }
   }
-  return `<div class="bonus-box"><div class="bonus-q">Platzierung schätzen <small class="muted">(${bonusHint()})</small></div>${inner}</div>`;
+  return `<div class="bonus-box"><div class="bonus-q">Platzierung schätzen <small class="muted">(½ Token)</small></div>${inner}</div>`;
 }
 
 function songBoxHTML(c, R) {
-  const field = (id, label, value) => `<input type="text" class="free-input" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${label}" aria-label="${label}" value="${esc(value)}">`;
+  const field = (id, label, value) => `<div class="suggest-wrap"><input type="text" class="free-input" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${label}" aria-label="${label}" value="${esc(value)}"><div class="suggest-list" hidden></div></div>`;
   const parts = [R.artist ? 'Interpret' : '', R.title ? 'Titel' : ''].filter(Boolean).join(' und ');
-  return `<div class="bonus-box"><div class="bonus-q">${parts} raten <small class="muted">(je ${bonusHint()})</small></div>
+  return `<div class="bonus-box"><div class="bonus-q">${parts} raten <small class="muted">(je ½ Token)</small></div>
     <div class="col song-fields">${R.artist ? field('inp-artist', 'Interpret', c.artistTip) : ''}${R.title ? field('inp-title', 'Titel', c.titleTip) : ''}</div></div>`;
+}
+
+/** Vorschlagsmenü unter einem Eingabefeld. Freies Tippen bleibt möglich. */
+function bindSuggest(input, list, onPick) {
+  const box = input.parentElement.querySelector('.suggest-list');
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  input.addEventListener('input', () => {
+    const hits = suggest(input.value, list);
+    if (!hits.length || (hits.length === 1 && hits[0] === input.value)) { close(); return; }
+    box.innerHTML = hits.map((h) => `<button type="button" class="suggest-item" tabindex="-1" data-v="${esc(h)}">${esc(h)}</button>`).join('');
+    box.hidden = false;
+  });
+  input.addEventListener('blur', close);
+  // pointerdown statt click: sonst schließt der blur das Menü, bevor der Klick ankommt
+  box.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.suggest-item');
+    if (!b) return;
+    e.preventDefault();
+    input.value = b.dataset.v;
+    onPick(input.value);
+    close();
+  });
 }
 
 function renderBonus() {
@@ -831,11 +939,14 @@ function renderBonus() {
   const el = $('#bonus');
   const R = rules();
   const hasSong = R.artist || R.title;
-  if (c.phase !== 'listen' || (R.country === 'off' && R.place === 'off' && !hasSong)) { el.innerHTML = ''; return; }
-  el.innerHTML = (hasSong ? songBoxHTML(c, R) : '') + (R.country !== 'off' ? countryBoxHTML(c, R) : '') + (R.place !== 'off' ? placeBoxHTML(c, R) : '');
+  const hasYear = R.exact > 0;
+  if (c.phase !== 'listen' || (R.country === 'off' && R.place === 'off' && !hasSong && !hasYear)) { el.innerHTML = ''; return; }
+  el.innerHTML = (hasYear ? yearBoxHTML(c) : '') + (hasSong ? songBoxHTML(c, R) : '') + (R.country !== 'off' ? countryBoxHTML(c, R) : '') + (R.place !== 'off' ? placeBoxHTML(c, R) : '');
   const changed = () => { save(); updateGuessPreview(); };
   $$('[data-country]', el).forEach((b) => b.addEventListener('click', () => { c.country.guess = c.country.guess === b.dataset.country ? null : b.dataset.country; renderBonus(); changed(); }));
   $$('[data-place]', el).forEach((b) => b.addEventListener('click', () => { c.place.guess = c.place.guess === b.dataset.place ? null : b.dataset.place; renderBonus(); changed(); }));
+  const yi = $('#inp-exact', el);
+  if (yi) yi.addEventListener('input', () => { c.exact = yi.value; changed(); });
   const ci = $('#inp-country', el);
   if (ci) ci.addEventListener('input', () => { c.country.text = ci.value; changed(); });
   const pi = $('#inp-place', el);
@@ -844,6 +955,8 @@ function renderBonus() {
   if (ai) ai.addEventListener('input', () => { c.artistTip = ai.value; changed(); });
   const ti = $('#inp-title', el);
   if (ti) ti.addEventListener('input', () => { c.titleTip = ti.value; changed(); });
+  if (R.suggest && ai) bindSuggest(ai, ARTISTS, (v) => { c.artistTip = v; changed(); });
+  if (R.suggest && ti) bindSuggest(ti, TITLES, (v) => { c.titleTip = v; changed(); });
   const hf = $('#btn-hf', el);
   if (hf) hf.addEventListener('click', () => { c.place.hf = !c.place.hf; if (c.place.hf) c.place.free = ''; renderBonus(); changed(); });
 }
@@ -865,29 +978,32 @@ function renderReveal() {
   const R = rules();
   const textLine = (label, tip, st) => {
     if (!st) return;
-    const word = { ok: 'richtig · +1', near: 'teilweise richtig', bad: 'falsch' }[st];
+    const word = { ok: 'richtig · +½', near: 'teilweise richtig', bad: 'falsch' }[st];
     lines.push(`<div class="line ${st}">${label} („${esc(tip.trim())}“): ${word}</div>`);
   };
   textLine('Interpret', c.artistTip, r.artistState);
   textLine('Titel', c.titleTip, r.titleState);
   if (r.countryOk !== null) {
     const typed = R.country === 'free' ? ` („${esc(c.country.text.trim())}“)` : '';
-    lines.push(`<div class="line ${r.countryOk ? 'ok' : 'bad'}">Land raten${typed}: ${r.countryOk ? 'richtig' : `falsch, es war ${esc(song.land)}`}</div>`);
+    lines.push(`<div class="line ${r.countryOk ? 'ok' : 'bad'}">Land raten${typed}: ${r.countryOk ? 'richtig · +½' : `falsch, es war ${esc(song.land)}`}</div>`);
   }
   if (r.placeOk !== null) {
     const tip = R.place === 'free' ? ` (Tipp: ${c.place.hf ? 'Halbfinal-Aus' : `Platz ${esc(c.place.free)}`})` : '';
     const st = r.guess && r.guess.place ? r.guess.place.state : (r.placeOk ? 'ok' : 'bad');
     const word = { ok: 'richtig', near: 'fast richtig', bad: 'falsch' }[st];
-    lines.push(`<div class="line ${st}">Platzierung${tip}: ${word}${r.placePts ? ` · +${r.placePts}` : ''}</div>`);
+    lines.push(`<div class="line ${st}">Platzierung${tip}: ${word}${r.placePts ? ` · +${fmtTokens(r.placePts)}` : ''}</div>`);
   }
   if (r.exactOk !== null) {
-    const exactHit = parseInt(c.exact, 10) === song.jahr;
-    const word = r.exactOk ? `Punktlandung! +${R.exact}` : exactHit ? 'stimmt, aber die Karte liegt falsch – kein Bonus' : Math.abs(parseInt(c.exact, 10) - song.jahr) <= 2 ? 'knapp daneben' : 'daneben';
+    const off = Math.abs(parseInt(c.exact, 10) - song.jahr);
+    const yearPts = r.yearPts ?? (r.exactOk ? 1 : 0);
+    const word = r.exactOk ? 'Punktlandung! +1'
+      : yearPts ? `knapp daneben · +${fmtTokens(yearPts)}`
+        : off === 0 ? 'stimmt, aber die Karte liegt falsch – kein Token'
+          : off <= 2 ? 'knapp daneben, aber die Karte liegt falsch' : 'daneben';
     const st = r.exactOk ? 'ok' : r.guess && r.guess.year ? r.guess.year.state : 'bad';
     lines.push(`<div class="line ${st}">Genaues Jahr (Tipp: ${esc(c.exact)}): ${word}</div>`);
   }
-  if (r.gain.tokens) lines.push(`<div class="line ok">+${r.gain.tokens} Token für ${esc(p.name)}</div>`);
-  else if (r.pts && R.bonus !== 'tokens') lines.push(`<div class="line ok">★ +${r.pts} Bonus für ${esc(p.name)}</div>`);
+  if (r.gain.tokens) lines.push(`<div class="line ok">+${tokenLabel(r.gain.tokens)} für ${esc(p.name)}</div>`);
   if (r.gain.cards) lines.push(`<div class="line ok big-line">+${r.gain.cards} Bonuskarte für ${esc(p.name)}!</div>`);
   const gameOver = targetReached() && nextPlayer() === state.first;
   const nextName = state.players[nextPlayer()].name;
@@ -897,7 +1013,7 @@ function renderReveal() {
   el.innerHTML = `<div class="reveal-card ${hasOwn ? '' : 'solo'}">${hasOwn ? ownCardHTML(r.guess) : ''}${cardHTML(song, `big ${r.correct ? 'correct' : 'wrong'}`)}</div>
     <div class="reveal-info">${lines.join('')}
       ${yt ? `<div class="row"><a class="btn yt" id="btn-yt" href="${esc(yt.href)}"${yt.target}>▶ Ganzes Video auf YouTube</a></div>` : ''}
-      <div class="row"><button class="btn primary big" id="btn-next">${gameOver ? 'Zur Siegerehrung' : `Weiter: ${esc(nextName)}`}</button></div>
+      <div class="row"><button class="btn primary big" id="btn-next">${gameOver ? (isSolo() ? 'Zur Auswertung' : 'Zur Siegerehrung') : `Weiter: ${esc(nextName)}`}</button></div>
     </div>`;
   $('#btn-next').onclick = nextTurn;
   if (yt) $('#btn-yt').addEventListener('click', () => YTP.pause());
@@ -1028,9 +1144,17 @@ const limitActive = (c) => limitOf() > 0 && c && c.phase === 'listen' && !c.rele
 const limitPercent = (c) => Math.max(0, 100 - (c.heard / limitOf()) * 100);
 const limitText = (c) => (c.timeUp ? '⏱ Zeit um' : `⏱ ${Math.ceil(Math.max(0, limitOf() - c.heard))} s`);
 
+/** Zeit um und zu wenig Tokens zum Weiterhören? */
+const limitLocked = (c) => limitActive(c) && c.timeUp && activeP().tokens < renewCost(rules(), c.renewals);
+
 function playLabel() {
   const c = state && state.cur;
-  if (c && limitActive(c) && c.timeUp && audioStatus !== 'playing') return `▶ Weitere ${limitOf()} s hören`;
+  if (c && limitLocked(c)) return '⏱ Zeit um';
+  if (c && limitActive(c) && c.timeUp && audioStatus !== 'playing') {
+    const price = renewCost(rules(), c.renewals);
+    const note = rules().renew !== 'paid' ? '' : ` <small>(${price ? `${fmtTokens(price)} Token` : 'gratis'})</small>`;
+    return `▶ Weitere ${limitOf()} s hören${note}`;
+  }
   if (audioStatus === 'loading') return `<span class="spin"></span> Lädt …${loadAttempt > 1 ? ` <small>(Versuch ${loadAttempt})</small>` : ''}`;
   if (audioStatus === 'playing') return '<span class="eq"><i></i><i></i><i></i></span> Läuft · Pause';
   return '▶ Abspielen';
@@ -1042,10 +1166,27 @@ function setAudioStatus(st) {
   if (b) b.innerHTML = playLabel();
 }
 
-/** Nach Ablauf startet ein Klick auf Abspielen ein neues Zeitfenster, beliebig oft. */
-function renewLimit() {
+/** Abspielen und Neustart: Nach Ablauf der Zeit beginnt hier ein neues Zeitfenster, wenn nötig gegen Tokens. */
+async function withRenewal(action) {
+  if (!YTP.isReady()) { toast('Player lädt noch …'); return; }
   const c = state.cur;
-  if (limitActive(c) && c.timeUp) { c.timeUp = false; c.heard = 0; save(); renderControls(); }
+  if (limitActive(c) && c.timeUp) {
+    const p = activeP();
+    const price = renewCost(rules(), c.renewals);
+    if (p.tokens < price) return;
+    if (price) {
+      const ok = await confirmDlg('Weiterhören kostet Tokens', `Noch ${limitOf()} s kosten ${tokenLabel(price)}. ${p.name} hat ${tokenLabel(p.tokens)}.`, 'Bezahlen und weiterhören', 'Abbrechen');
+      if (!ok) return;
+      p.tokens -= price;
+    }
+    c.renewals += 1;
+    c.timeUp = false;
+    c.heard = 0;
+    save();
+    renderScoreboard();
+    renderControls();
+  }
+  action();
 }
 
 let limitLast = 0;
@@ -1062,10 +1203,7 @@ function limitTick() {
     c.timeUp = true;
     YTP.pause();
     save();
-    const box = $('.limit');
-    if (box) box.classList.add('up');
-    const btn = $('#btn-play');
-    if (btn) btn.innerHTML = playLabel();
+    renderControls();
   }
   const fill = $('#limit-fill');
   if (fill) { fill.style.width = `${limitPercent(c)}%`; $('#limit-text').textContent = limitText(c); }
@@ -1150,6 +1288,27 @@ function initAudio() {
   });
 }
 
+/* ------------------------------------------------------------------ Statistik */
+function renderStats() {
+  const box = $('#stats-result');
+  const text = $('#stats-input').value;
+  if (!text.trim()) { box.innerHTML = ''; return; }
+  const iso = matchCountry(text, COUNTRY_NAMES);
+  if (!iso) { box.innerHTML = '<div class="muted small">Land aus der Liste wählen.</div>'; return; }
+  const st = countryStats(DATA.songs, iso);
+  const notes = [
+    st.notFinal ? `Nicht im Finale: ${st.notFinal}` : '',
+    st.unrated ? `Ohne Wertung: ${st.unrated}` : '',
+  ].filter(Boolean).join(' · ');
+  box.innerHTML = `<div class="stat-head">${flagHTML(iso)}<b>${esc(COUNTRY_NAMES.get(iso))}</b></div>
+    <div><b class="stat-num">${st.entries}</b> Teilnahmen${st.cancelled ? ' <span class="muted small">(davon 1 im abgesagten Jahr 2020)</span>' : ''}</div>
+    <h3>Häufigste Platzierungen im Finale</h3>
+    ${st.top.length ? `<ol class="stat-top">${st.top.map((a) => `<li>Platz ${a.place} <b>${a.count}×</b></li>`).join('')}</ol>` : '<div class="muted small">Noch nie im Finale platziert.</div>'}
+    ${notes ? `<div class="muted small">${notes}</div>` : ''}
+    ${st.all.length ? `<details class="sub-details"><summary>Alle Platzierungen</summary>
+      <div class="stat-all">${st.all.map((a) => `<div class="${a.count ? '' : 'muted'}">Platz ${a.place}: <b>${a.count}×</b></div>`).join('')}</div></details>` : ''}`;
+}
+
 /* ------------------------------------------------------------------ Info-Dialog */
 function openInfo() {
   const withVideo = DATA.songs.filter(hasVideo).length;
@@ -1203,6 +1362,9 @@ async function main() {
   BY_ID = new Map(DATA.songs.map((s) => [s.id, s]));
   COUNTRY_NAMES = new Map();
   for (const s of DATA.songs) if (s.land_iso && !COUNTRY_NAMES.has(s.land_iso)) COUNTRY_NAMES.set(s.land_iso, s.land || s.land_iso);
+  const sortedUnique = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+  ARTISTS = sortedUnique(DATA.songs.map((s) => s.interpret));
+  TITLES = sortedUnique(DATA.songs.map((s) => s.titel));
   $('#loading').hidden = true;
   $('#setup').hidden = false;
   initSetup();
@@ -1224,6 +1386,8 @@ window.ESC = {
   draw: () => state && draw(),
   setGap: (g) => setGap(g),
   reveal: () => reveal(),
+  tryReveal: () => tryReveal(),
+  missing: () => missingFields(state.cur),
   next: () => nextTurn(),
   skip: () => skip(),
   score: (p) => score(p),

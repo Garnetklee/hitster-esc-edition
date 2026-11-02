@@ -60,7 +60,6 @@ export function filterPool(songs, f, dev = false) {
   const countries = f.countries && f.countries.length ? new Set(f.countries) : null;
   return songs.filter((s) => {
     if (!dev && !hasVideo(s)) return false;
-    if (!f.incl2020 && isCancelled(s)) return false;
     if (f.from && s.jahr < f.from) return false;
     if (f.to && s.jahr > f.to) return false;
     if (countries && !countries.has(s.land_iso)) return false;
@@ -103,14 +102,87 @@ export function countryOptions(song, songs) {
   return shuffle([song.land_iso, ...shuffle(sameYear).slice(0, 3)]);
 }
 
-/** Bonuspunkte für einen freien Platz-Tipp: exakt 2, bis 2 Plätze daneben 1, richtiges Halbfinal-Aus 1. */
-export function freePlacePoints(s, guess) {
+/** Tokens für einen freien Platz-Tipp: exakt 1, bis 2 Plätze daneben ½, richtiges Halbfinal-Aus ½. */
+export function placeTokens(s, guess) {
   const out = s.runde_ende !== 'Finale';
-  if (guess.hf) return out ? 1 : 0;
+  if (guess.hf) return out ? 0.5 : 0;
   const n = parseInt(guess.free, 10);
   if (isNaN(n) || out) return 0;
   const d = Math.abs(n - s.platz);
-  return d === 0 ? 2 : d <= 2 ? 1 : 0;
+  return d === 0 ? 1 : d <= 2 ? 0.5 : 0;
+}
+
+/** Tokens für das genaue Jahr: exakt 1, bis 2 Jahre daneben ½, nur wenn die Karte richtig liegt. */
+export function yearTokens(tip, year, correct) {
+  if (!correct || isNaN(tip)) return 0;
+  const d = Math.abs(tip - year);
+  return d === 0 ? 1 : d <= 2 ? 0.5 : 0;
+}
+
+/** Besser/schlechter ist ein 50:50-Tipp und bringt deshalb nur ½. */
+export const neighborTokens = (ok) => (ok ? 0.5 : 0);
+
+/** Summe eines Zugs. Interpret, Titel und Land bringen je ½. */
+export function tokenPoints({ countryOk, artistState, titleState, placePts = 0, yearPts = 0 }) {
+  const half = [countryOk, artistState === 'ok', titleState === 'ok'].filter(Boolean).length;
+  return half * 0.5 + placePts + yearPts;
+}
+
+/** Tokens gutschreiben. Beim Umwandeln wird aus je convertAt Tokens eine Bonuskarte. */
+export function applyTokens(p, n, r) {
+  p.tokens += n;
+  let cards = 0;
+  if (n && r.convert) {
+    while (p.tokens >= r.convertAt) {
+      p.tokens -= r.convertAt;
+      p.bonusCards += 1;
+      cards += 1;
+    }
+  }
+  return { tokens: n, cards };
+}
+
+export const skipCost = (p) => (p.freeSkips > 0 ? 0 : 1);
+
+/** Preis fürs Weiterhören: im schweren Modus ist nur das erste Mal gratis. */
+export const renewCost = (r, renewals) => (r.renew === 'paid' && renewals >= 1 ? 0.5 : 0);
+
+/** 2,5 statt 2.5, ½ statt 0,5. */
+export const fmtTokens = (n) => (n === 0.5 ? '½' : String(n).replace('.', ','));
+export const tokenLabel = (n) => `${fmtTokens(n)} ${n === 0.5 || n === 1 ? 'Token' : 'Tokens'}`;
+
+const fold = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ß/g, 'ss');
+
+/** Vorschläge beim Tippen: Treffer am Anfang zuerst, ohne Akzent-Unterschiede. */
+export function suggest(text, list, max = 6) {
+  const q = fold(text).trim();
+  if (q.length < 2) return [];
+  const start = [];
+  const inner = [];
+  for (const item of list) {
+    const pos = fold(item).indexOf(q);
+    if (pos === 0) start.push(item);
+    else if (pos > 0) inner.push(item);
+  }
+  return [...start, ...inner].slice(0, max);
+}
+
+/** Statistik eines Landes. Halbfinalplätze sind eine andere Skala und zählen deshalb getrennt. */
+export function countryStats(songs, iso) {
+  const entries = songs.filter((s) => s.land_iso === iso);
+  const held = entries.filter((s) => !isCancelled(s));
+  const counts = new Map();
+  for (const s of held) if (s.platz_finale !== null) counts.set(s.platz_finale, (counts.get(s.platz_finale) || 0) + 1);
+  const worst = counts.size ? Math.max(...counts.keys()) : 0;
+  const all = Array.from({ length: worst }, (_, i) => ({ place: i + 1, count: counts.get(i + 1) || 0 }));
+  return {
+    entries: entries.length,
+    cancelled: entries.length - held.length,
+    notFinal: held.filter((s) => s.runde_ende !== 'Finale').length,
+    unrated: held.filter((s) => s.runde_ende === 'Finale' && s.platz_finale === null).length,
+    top: all.filter((a) => a.count).sort((a, b) => b.count - a.count || a.place - b.place).slice(0, 5),
+    all,
+  };
 }
 
 const normName = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/ß/g, 'ss').replace(/[^a-z]/g, '');
