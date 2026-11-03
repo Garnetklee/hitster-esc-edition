@@ -47,6 +47,8 @@ python -m venv .venv
 - Ablauf eines Zugs: `startTurn` → `draw` → Hören und Lücke wählen → `tryReveal`/`reveal` → `nextTurn`, am Ende `endGame`.
 - `app/js/settings.js` definiert die Regeln (`DEFAULT_RULES`), die fertigen Modi (`PRESETS`) und die Migrationen. Spielmodi sind nur Kombinationen dieser Regeln.
 - `app/js/data.js` lädt und normalisiert die Lieder (`loadSongs`, Fallback auf `data/sample.json`) und enthält die reine Logik: Pool-Filter, Token-Berechnung, Text-Abgleich, Statistik.
+- Der Modus „Nur Musik hören“ (`screen-music`) liegt ebenfalls in `app.js`. Sein Zustand steckt in der Modulvariable `music`, nicht in `state`.
+- `app/audio/te-deum.mp3` läuft bei der Siegerehrung (Creative Commons Attribution, Quelle im Info-Dialog). Das Repo ist öffentlich, also nur frei lizenzierte Aufnahmen einbinden. `sw.js` lässt `.mp3` am Cache vorbei, weil Safari für Audio Range-Antworten verlangt.
 - `app/js/player.js` kapselt den YouTube-IFrame-Player samt Wiederholungen bei Hängern. Das Video bleibt verdeckt und wird nur bei Werbung eingeblendet.
 - `app/sw.js`: Das JSON kommt network-first, die App-Shell cache-first. Daten-Updates brauchen also keine neue `VERSION`.
 - Die Tests in `tests/logik.test.mjs` laufen gegen die echten Lieder aus `app/data/esc_songs.json`. Sie bauen die Normalisierung nach, weil `normalize` nicht exportiert ist. Neue Felder dort mit ergänzen, wenn die Logik sie braucht.
@@ -58,6 +60,7 @@ Die nummerierten Skripte in `tools/` bauen aufeinander auf: Wikipedia → Wikida
 - `data/raw/` (Rohdaten und Caches) ist git-ignoriert und fehlt daher in Worktrees. Arbeit an den Rohdaten und jeder Export, der die Caches braucht, gehört nicht in einen Worktree.
 - `07_export_json.py` wendet zuerst die Caches und zuletzt `overrides.csv` an, schreibt `data/esc_songs.json` und kopiert die Datei nach `app/data/`. Die App liest nur die Kopie, `app/data/esc_songs.json` nie von Hand ändern.
 - `04_find_youtube.py` und `05_check_links.py` nicht gleichzeitig laufen lassen, beide schreiben `youtube_cache.json`.
+- `09_check_intro.py` schätzt den Musikeinsatz bis 1979 und schreibt die Prüfliste `data/raw/intro_pruefung.html`. Die Erkennung ist grob, Vorschläge vor dem Übernehmen prüfen.
 - Feldformate und Sonderfälle (1956, 1969, 2020, Halbfinal-Aus) stehen in `data/SCHEMA.md`.
 - `PLAN.md`, `SCHEMA.md` und die Docstrings der Skripte nennen teils noch den alten Pfad `esc/`. Das Projekt liegt inzwischen direkt im Repo-Wurzelordner.
 

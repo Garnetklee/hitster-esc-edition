@@ -1,1 +1,6 @@
+Datenbank:
+
+Gibt es eine einfache Möglichkeit die intros besonders bei den ganz alten Liedern zu überprüfen ohne dass du manuelle jedes frame für frame zu Beginn des Videos durchgehen musst?
+   Notiz: Nur teilweise. tools/09_check_intro.py erkennt den Musikeinsatz zu grob, kein Vorschlag war sicher genug zum automatischen Übernehmen. Die Prüfliste steht in data/raw/intro_pruefung.html. Zuverlässiger waren Pegelkurve plus Videobilder, das ginge auch für alle Lieder bis 1979.
+
 (irgendwann später Erweiterung der Statistikseite. In unserer Datenauswertung kann noch mehr herausgeholt werden)

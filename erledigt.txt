@@ -1,5 +1,33 @@
 ==================== Erledigt ====================
 
+✅ erledigt (2026-11-03 15:57) – Der Button, welcher den Video Player anzeigt, soll genau so bleiben, wenn Werbung läuft. Der Button, der dauerhaft zusehen ist, soll anders dargestellt werden. Es soll so etwas dran stehen wie Hinweis: Video einblenden. Erstmal ohne Kosten, aber man soll es leicht erkennen können, dass es jetzt eine gewollte Funktion ist.
+   → Dauerhafter Button heißt „💡 Hinweis: Video einblenden (gratis)“ und zeigt das ganze Video, bis man es schließt. Der Werbe-Button im Hinweiskasten bleibt beim Ausschnitt.
+
+✅ erledigt (2026-11-03 15:57) – Kein + zwischen allen Karten. Nur durch ziehen platzieren
+   → Lücken sind unsichtbar, platziert wird nur durch Ziehen. Ausnahme Klauen: Dort gibt es keine Karte zum Ziehen, deshalb bleiben die + zum Antippen.
+
+✅ erledigt (2026-11-03 15:57) – Bei mehr als 5 Karten bzw wenn man eigentlich anfangen würde seitlich zu scrollen: Karten leicht überlappt und schieben sich auseinander, wenn man eine Karte darüber schiebt oder mit der Maus hovert. Schau dir in C:\Users\Finns\Documents\ClaudeMemory\coc_Projekt\demo_darstellung die Demo an und orientiere dich an Demo 3C unter Varianten. Das passt nicht exakt zu unserem projekt, aber so etwa habe ich mir das überlappen vorgestellt.
+   → Karten überlappen gerade, sobald der Platz nicht reicht, und rücken beim Überfahren oder Darüberziehen auseinander. Text steht dabei links, damit das Jahr sichtbar bleibt. Reichen 45 % Überlappung nicht, wird wieder gescrollt. Selbst testen: Touch am Handy.
+
+✅ erledigt (2026-11-03 15:57) – kleines Fenster zum Werbung überspringen weiter anpassen. Siehe screenshot
+   → Fenster von 180 auf 280 px verbreitert, rechte Abdeckung entfernt. Selbst testen: Ohne echte Werbung nicht prüfbar, bei Bedarf Maße nennen.
+
+✅ erledigt (2026-11-03 15:57) – Zu viel Intro bei: Deutschland 1967 Anouschka und Deutschland 1969 Primaballerina
+   → Start auf 21 s (Anouschka) und 10 s (Primaballerina) gesetzt, bestimmt aus Pegelkurve und Videobildern, nicht nach Gehör. Selbst testen: kurz anhören.
+
+✅ erledigt (2026-11-03 15:57) – Modus: nur Musik hören. Nicht bei den richtigen Spielmodi aufführen, sondern irgendwo anders in klein.
+soll eine Seite ähnlich eines musikplayers öffnen. Einstellung für Länder, Jahre usw soll von den einstellungen der Spielmodi auch hier gelten. Design sollst du selbst machen passend zur App und als einfacher musik Player.
+   → Kleiner Link „🎧 Nur Musik hören“ unter der Statistik öffnet einen Player mit Zufallsfolge, Spulen, Warteschlange und Liedangaben. Nutzt Zeitraum und Länder aus den Einstellungen.
+
+✅ erledigt (2026-11-03 15:57) – Einstellung: Zeit tracken: Es wird dabei aufsummiert wie lange ein Spieler gebraucht hat bis er eingelöst hat. Nicht nur Videospielzeit, sondern auch Denkzeit des Spielers. Beim Auflösen soll die Zeit genannt werden und am Ende bei der Siegerehrung soll sie größer als Gesamtzeit erscheinen und im Vergleich zu den anderen Spielern. Bis jetzt nur Zeit anzeigen, keine weiteren Auswirkungen.
+   → Schalter in den erweiterten Einstellungen. Die Uhr läuft ab dem ersten Abspielen oder Ziehen bis zum Auflösen, Lade- und Werbezeit vor dem Start zählen nicht. Anzeige beim Auflösen und groß mit Balkenvergleich am Ende.
+
+✅ erledigt (2026-11-03 15:57) – Gibt es eine melodie beim echten esc, die immer läuft, wenn der Gewinner verkündet wird? Diese bitte einbauen wenn unsere Siegerehrung aufgerufen wird. Falls du nichts findest, dann den Eurovision bzw ESC intro Jingle des aktuellsten Jahres verwenden.
+   → Keine feste Sieger-Melodie gefunden, stattdessen die Eurovisions-Fanfare: Te Deum von Charpentier, 32 s, Aufnahme unter Creative Commons Attribution, Quelle im Info-Dialog. Selbst testen: Autoplay am Handy.
+
+✅ erledigt (2026-11-03 15:57) – Bei jedem Land eine Art Heatmap erstellen mit allen Jahren. Hohe Platzierungen sind mehr heat. Man soll erkennen, wenn ein Land zum Beispiel eine Zeit lang sehr stark performt hat. Es soll eine schöne gesamtübersicht sein über alle Jahre
+   → Gesamtmatrix in der Statistik: alle Länder gegen alle Jahre, heller = weiter vorn, Gold = Sieg. Antippen zeigt Lied und Platz, das gesuchte Land rückt nach oben.
+
 ✅ erledigt (2026-11-02 01:54) – Ein Spieler Modus ermöglichen. Einfach zweiten Spieler entfernbar machen und dann nur mit sich selber spielen, bis man die eingestellte Kartenanzahl erreicht hat. Bei der Bewertung dann anzeigen wie viele Runden man gebraucht hat
    → Geht bis 1 Spieler, ohne Klauen. Die Auswertung zeigt „Geschafft in X Runden“.
 
