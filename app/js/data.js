@@ -316,3 +316,16 @@ export function heatMatrix(songs) {
     countries: [...countries.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')),
   };
 }
+
+/** Lieder suchen: Jedes Suchwort muss in Titel, Interpret, Land, Jahr oder Id vorkommen. Älteste zuerst. */
+export function searchSongs(songs, query, max = 8) {
+  const words = textWords(query);
+  if (!words.length) return [];
+  return songs
+    .filter((s) => {
+      const hay = textWords(`${s.titel} ${s.interpret} ${s.land} ${s.jahr} ${s.id}`).join(' ');
+      return words.every((w) => hay.includes(w));
+    })
+    .sort((a, b) => a.jahr - b.jahr)
+    .slice(0, max);
+}

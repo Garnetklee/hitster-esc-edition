@@ -1,5 +1,14 @@
 ==================== Erledigt ====================
 
+✅ erledigt (2026-11-03 16:07) – Gibt es eine einfache Möglichkeit die intros besonders bei den ganz alten Liedern zu überprüfen ohne dass du manuelle jedes frame für frame zu Beginn des Videos durchgehen musst?
+   → tools/09_check_intro.py schätzt den Musikeinsatz. Konservativ übernommen: 133 Lieder bis 1979 starten später, nie früher, höchstens bei 30 s. Dabei kann der Anfang eines Lieds fehlen. Zum Prüfen gibt es „Lied testen“ in den erweiterten Einstellungen.
+
+✅ erledigt (2026-11-03 16:07) – Nein das Werbefenster sollte kleiner werden. Auf dem Screenshot siehst du rechts schon das Titelbild des Videos. Das sollte nicht zusehen Sein. Man muss nicht den ganzen Text lesen können. Das versteht man auch ohne. Oben und unten auch nur das Minimum vom Fenster anzeigen
+   → Fenster auf etwa 100 × 42 px verkleinert, das Titelbild bleibt verdeckt. Maße aus dem Screenshot abgeleitet. Selbst testen: echte Werbung, vor allem ob „Überspringen“ noch zu sehen ist.
+
+✅ erledigt (2026-11-03 16:07) – Baue mir unter erweiterte Einstellungen eine Testfunktion ein. Ich möchte ein Lied gezielt abspielen, damit ich die Intros überprüfen kann.
+   → „Lied testen“ sucht nach Titel, Interpret, Land oder Jahr und spielt ab Spielstart oder ab 0:00, mit Positionsanzeige in Sekunden und Video auf Wunsch.
+
 ✅ erledigt (2026-11-03 15:57) – Der Button, welcher den Video Player anzeigt, soll genau so bleiben, wenn Werbung läuft. Der Button, der dauerhaft zusehen ist, soll anders dargestellt werden. Es soll so etwas dran stehen wie Hinweis: Video einblenden. Erstmal ohne Kosten, aber man soll es leicht erkennen können, dass es jetzt eine gewollte Funktion ist.
    → Dauerhafter Button heißt „💡 Hinweis: Video einblenden (gratis)“ und zeigt das ganze Video, bis man es schließt. Der Werbe-Button im Hinweiskasten bleibt beim Ausschnitt.
 

@@ -176,6 +176,21 @@
           <h3>Zeit</h3>
           <label class="switch"><input type="checkbox" id="chk-time"><span class="slider"></span>
             <span>Zeit tracken <small class="muted">(Hör- und Denkzeit bis zum Auflösen, nur zur Anzeige)</small></span></label>
+
+          <h3>Lied testen</h3>
+          <div class="muted small hint">Spielt ein bestimmtes Lied, zum Beispiel um das Intro zu prüfen. Suche nach Titel, Interpret, Land oder Jahr.</div>
+          <input type="text" class="test-input" id="test-search" autocomplete="off" enterkeyhint="done" placeholder="z. B. Anouschka oder Deutschland 1969" aria-label="Lied suchen">
+          <ol id="test-results" class="music-queue"></ol>
+          <div id="test-box" class="test-box" hidden>
+            <div id="test-info"></div>
+            <div id="test-pos" class="test-pos"></div>
+            <div class="row">
+              <button type="button" class="btn small" id="btn-test-start">▶ Ab Spielstart</button>
+              <button type="button" class="btn small" id="btn-test-zero">⏮ Ab 0:00</button>
+              <button type="button" class="btn small" id="btn-test-toggle">⏸ Pause</button>
+              <button type="button" class="btn small" id="btn-test-video">📺 Video zeigen</button>
+            </div>
+          </div>
         </details>
 
         <details class="panel advanced" id="stats">

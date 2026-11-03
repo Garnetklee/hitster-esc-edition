@@ -45,6 +45,7 @@ ANTEIL_RUN = 0.8    # Anteil Musikfenster innerhalb des Laufs
 SCHWELLE = 0.5      # ab diesem Musik-Anteil gilt ein Fenster als Musik
 MAX_SICHER = 60     # Vorschläge darüber nie als sicher behandeln
 ABWEICHUNG = 3      # Sekunden, ab denen ein Lied im Bericht und Override auftaucht
+MAX_START = 30      # Overrides starten höchstens hier: lieber etwas vom Lied verpassen als das ganze Intro hören
 
 try:  # Windows-Konsole: Umlaute nicht abstürzen lassen
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -304,13 +305,13 @@ def schreibe_overrides(auswahl, cache):
         e = cache.get(r["id"])
         if not e or e.get("youtube_id") != r["youtube_id"] or e.get("vorschlag") is None:
             continue
-        v = e["vorschlag"]
-        if e["sicherheit"] != "hoch" or v > MAX_SICHER or r["id"] in vorhandene:
+        v = min(e["vorschlag"], MAX_START)
+        if r["id"] in vorhandene:
             continue
         # Nur später starten: Die Prüfung soll Intros kürzen, nie verlängern
         if v - (r.get("start_sek") or 0) < ABWEICHUNG:
             continue
-        neu.append(f"{r['id']};start_sek;{v};Intro-Prüfung: Musik setzt bei {v} s ein")
+        neu.append(f"{r['id']};start_sek;{v};Intro-Prüfung konservativ: Start bei {v} s, höchstens {MAX_START} s")
     if neu:
         if not text.endswith("\n"):
             text += "\n"

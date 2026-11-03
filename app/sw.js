@@ -1,5 +1,5 @@
 // Einfacher Service Worker: App-Shell cachen, Daten-JSON network-first
-const VERSION = 'esc-hitster-v12';
+const VERSION = 'esc-hitster-v13';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/player.js', 'js/settings.js', 'js/fireworks.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',

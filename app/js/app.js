@@ -2,7 +2,7 @@
 import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
-  fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix,
+  fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -353,6 +353,7 @@ function newTurn(song) {
 }
 
 function startGame() {
+  testStop();
   const names = setup.names.map((n, i) => (n || '').trim() || `Spieler ${i + 1}`);
   const settings = {
     v: SETTINGS_VERSION,
@@ -375,6 +376,7 @@ function startGame() {
 }
 
 function resumeGame(saved) {
+  testStop();
   state = saved;
   // Lieder, die es nicht mehr gibt, entfernen
   for (const p of state.players) p.timeline = p.timeline.filter((id) => BY_ID.has(id));
@@ -1342,6 +1344,7 @@ let music = null; // { list, i, status, errors }, nur solange der Player offen i
 let musicSeeking = false;
 
 function openMusic() {
+  testStop();
   const list = shuffle(filterPool(DATA.songs, readFilter(), DEV).filter(hasVideo));
   if (!list.length) { toast('Keine Lieder mit Video in dieser Auswahl.'); return; }
   music = { list, i: 0, status: 'idle', errors: 0 };
@@ -1454,6 +1457,57 @@ function initMusic() {
   setInterval(musicTick, 500);
 }
 
+/* ------------------------------------------------------------------ Lied testen */
+let testSong = null;
+
+function testStop() {
+  if (!testSong) return;
+  testSong = null;
+  $('#test-box').hidden = true;
+  hidePlayer();
+  YTP.stop();
+}
+
+function testPlay(from) {
+  hidePlayer();
+  YTP.load(testSong.youtube_id, from, true);
+}
+
+function testPick(s) {
+  testSong = s;
+  $('#test-box').hidden = false;
+  $('#test-info').innerHTML = `<b>${esc(s.titel)}</b> · ${esc(s.interpret)}<div class="muted small">${esc(s.land)} ${s.jahr} · Id ${esc(s.id)} · Spielstart bei ${s.start_sek || 0} s</div>`;
+  testPlay(s.start_sek || 0);
+  testTick();
+}
+
+function testTick() {
+  if (!testSong) return;
+  const playing = YTP.isPlaying();
+  $('#test-pos').textContent = `Position ${Math.floor(YTP.position())} s (${fmtDuration(YTP.position() * 1000)} von ${fmtDuration(YTP.duration() * 1000)})`;
+  $('#btn-test-toggle').textContent = playing ? '⏸ Pause' : '▶ Weiter';
+}
+
+function initTest() {
+  let found = [];
+  $('#test-search').addEventListener('input', (e) => {
+    found = searchSongs(DATA.songs.filter(hasVideo), e.target.value);
+    const none = e.target.value.trim() && !found.length;
+    $('#test-results').innerHTML = none ? '<li class="muted small">Kein Lied gefunden.</li>' : found.map((s, i) =>
+      `<li><button type="button" data-i="${i}"><b>${s.jahr}</b><span>${esc(s.land)}: ${esc(s.interpret)} – ${esc(s.titel)}</span></button></li>`).join('');
+  });
+  $('#test-results').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]');
+    if (b) testPick(found[+b.dataset.i]);
+  });
+  $('#btn-test-start').onclick = () => testPlay(testSong.start_sek || 0);
+  $('#btn-test-zero').onclick = () => testPlay(0);
+  $('#btn-test-toggle').onclick = () => YTP.toggle();
+  $('#btn-test-video').onclick = () => showPlayer('hint');
+  $('#advanced').addEventListener('toggle', () => { if (!$('#advanced').open) testStop(); });
+  setInterval(testTick, 500);
+}
+
 /* ------------------------------------------------------------------ Player-Ereignisse */
 function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
@@ -1477,6 +1531,7 @@ function initAudio() {
     },
     onError(code, cur) {
       if (music) { musicError(code); return; }
+      if (testSong) { toast(`Video nicht abspielbar (Fehler ${code}).`, 5000); return; }
       if (!state || !state.cur) return;
       const song = S(state.cur.songId);
       if (!song || !cur || cur.videoId !== song.youtube_id) return;
@@ -1604,6 +1659,7 @@ async function main() {
   const tlObserver = new ResizeObserver((list) => list.forEach((x) => fitOverlap(x.target)));
   for (const id of ['#timeline', '#tl-view', '#end-tl', '#end-wrong']) tlObserver.observe($(id));
   initMusic();
+  initTest();
 
   try {
     DATA = await loadSongs();

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
-  fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue,
+  fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue, searchSongs,
 } from '../app/js/data.js';
 import {
   DEFAULT_RULES, PRESETS, presetById, presetMatches, matchingPreset, migrateSettings, migrateState, SETTINGS_VERSION,
@@ -207,4 +207,13 @@ test('Migration: Zeit tracken ergänzt alte Stände', () => {
   assert.equal(saved.players[0].time, 0);
   assert.equal(saved.cur.elapsed, 0);
   assert.equal(saved.cur.clockOn, false);
+});
+
+test('Lied suchen: Titel, Land mit Jahr, ohne Akzente, höchstens max Treffer', () => {
+  assert.equal(searchSongs(songs, 'anouschka')[0].id, '1967-DE');
+  assert.equal(searchSongs(songs, 'Deutschland 1969')[0].id, '1969-DE');
+  assert.ok(searchSongs(songs, 'Mathe Altery').some((s) => s.id === '1956-FR'));
+  assert.equal(searchSongs(songs, 'Deutschland').length, 8);
+  assert.deepEqual(searchSongs(songs, '   '), []);
+  assert.deepEqual(searchSongs(songs, 'gibtesnichtxyz'), []);
 });
