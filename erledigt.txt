@@ -1,5 +1,8 @@
 ==================== Erledigt ====================
 
+✅ erledigt (2026-11-03 23:32) – Bei den unsicheren Fällen möchte ich gerne, dass du den Text vor allem nach dem Namen des Interpreten durchsuchst. Der sollte auf jeden Fall weggeschnitten werden. Auch nach dem Song titel suchen, aber da kann es sein, dass er auch im Song normal gesungen wird. Es geht mir bei denen nicht darum die Moderation komplett rauszuschneiden, sondern mehr darum spoiler zu vermeiden für das Spiel
+   → Lieder bis 1979 nutzen wieder den Stand vor dieser Runde plus Whisper: 94 Lieder gekürzt (60 Moderation, 31 Interpret, 3 Titel), 290 ohne Treffer. Bericht in data/raw/intro_whisper_bericht.txt, frühere Auswahl in data/intro_musik_archiv.csv. Nicht angehört, selbst testen mit „Lied testen“.
+
 ✅ erledigt (2026-11-03 16:07) – Gibt es eine einfache Möglichkeit die intros besonders bei den ganz alten Liedern zu überprüfen ohne dass du manuelle jedes frame für frame zu Beginn des Videos durchgehen musst?
    → tools/09_check_intro.py schätzt den Musikeinsatz. Konservativ übernommen: 133 Lieder bis 1979 starten später, nie früher, höchstens bei 30 s. Dabei kann der Anfang eines Lieds fehlen. Zum Prüfen gibt es „Lied testen“ in den erweiterten Einstellungen.
 

@@ -1,4 +1,4 @@
-"""esc_songs.csv + Caches + overrides.csv -> esc_songs.json (für die App).
+"""esc_songs.csv + Caches + intro_whisper.csv + overrides.csv -> esc_songs.json (für die App).
 
 Reihenfolge: CSV lesen -> YouTube-/Link-/Popularitäts-Caches anwenden (common.apply_caches)
 -> overrides.csv (id;feld;wert;grund) zuletzt anwenden -> Typen umwandeln -> JSON.
@@ -44,6 +44,15 @@ def main():
     rows = read_csv(DATA / "esc_songs.csv")
     apply_caches(rows)
     by_id = {r["id"]: r for r in rows}
+    # Startpunkte aus 11_whisper_starts.py, von Hand gesetzte Overrides gehen danach vor
+    whisper = DATA / "intro_whisper.csv"
+    n_wh = 0
+    if whisper.exists():
+        for o in csv.DictReader(whisper.open(encoding="utf-8-sig"), delimiter=";"):
+            r = by_id.get((o.get("id") or "").strip())
+            if r is not None:
+                r["start_sek"] = o.get("start_sek") or ""
+                n_wh += 1
     ov = DATA / "overrides.csv"
     n_ov = 0
     if ov.exists():
@@ -62,7 +71,7 @@ def main():
     (ESC / "app" / "data").mkdir(parents=True, exist_ok=True)
     shutil.copy(DATA / "esc_songs.json", ESC / "app" / "data" / "esc_songs.json")
     spielbar = sum(1 for s in songs if s["youtube_id"] and s["embed_ok"] is not False)
-    print(f"{len(songs)} Beiträge, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
+    print(f"{len(songs)} Beiträge, {n_wh} Whisper-Starts, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
 
 
 if __name__ == "__main__":

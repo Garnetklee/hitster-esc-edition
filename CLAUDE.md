@@ -60,7 +60,8 @@ Die nummerierten Skripte in `tools/` bauen aufeinander auf: Wikipedia → Wikida
 - `data/raw/` (Rohdaten und Caches) ist git-ignoriert und fehlt daher in Worktrees. Arbeit an den Rohdaten und jeder Export, der die Caches braucht, gehört nicht in einen Worktree.
 - `07_export_json.py` wendet zuerst die Caches und zuletzt `overrides.csv` an, schreibt `data/esc_songs.json` und kopiert die Datei nach `app/data/`. Die App liest nur die Kopie, `app/data/esc_songs.json` nie von Hand ändern.
 - `04_find_youtube.py` und `05_check_links.py` nicht gleichzeitig laufen lassen, beide schreiben `youtube_cache.json`.
-- `09_check_intro.py` schätzt den Musikeinsatz bis 1979 und schreibt die Prüfliste `data/raw/intro_pruefung.html`. Die Erkennung ist grob. `--schreibe-overrides` ist deshalb bewusst konservativ: Es startet Lieder nur später, nie früher, und höchstens bei 30 s. Lieber fehlt etwas vom Lied, als dass man das ganze Intro hört. Einzelne Lieder lassen sich in der App unter „Lied testen“ prüfen.
+- Startpunkte bis 1979 kommen aus `10_find_speech.py` (lokales Whisper mit eigenem venv `C:\Users\Finns\esc-intro-venv`, schreibt `data/raw/speech_cache.json`) und `11_whisper_starts.py` (Regel, schreibt `data/intro_whisper.csv` und den Bericht `data/raw/intro_whisper_bericht.txt`). Ziel ist, Spoiler zu vermeiden: Ohne sicheren Treffer bleibt der bisherige Start. Der Export wendet die Datei vor `overrides.csv` an.
+- `09_check_intro.py` (Musikeinsatz) ist überholt. `--schreibe-overrides` dort nicht mehr nutzen, die frühere Auswahl liegt nur als Archiv in `data/intro_musik_archiv.csv`.
 - Feldformate und Sonderfälle (1956, 1969, 2020, Halbfinal-Aus) stehen in `data/SCHEMA.md`.
 - `PLAN.md`, `SCHEMA.md` und die Docstrings der Skripte nennen teils noch den alten Pfad `esc/`. Das Projekt liegt inzwischen direkt im Repo-Wurzelordner.
 
