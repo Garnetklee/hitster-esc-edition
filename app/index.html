@@ -21,7 +21,7 @@
     <div class="yt-mask yt-mask-bottom"></div>
   </div>
   <div id="yt-bar" class="yt-bar" hidden>
-    <span>Sobald im Ausschnitt „Überspringen“ erscheint, tippe darauf. Das Fenster schließt sich, wenn das Lied startet.</span>
+    <span id="yt-bar-text"></span>
     <div class="row">
       <button class="btn small ghost" id="btn-unmask-player">Ganzes Bild (verrät das Lied)</button>
       <button class="btn small" id="btn-hide-player">Schließen</button>
@@ -172,6 +172,10 @@
           <h3>Klauen</h3>
           <label class="switch"><input type="checkbox" id="chk-steal"><span class="slider"></span>
             <span>Klauen erlauben <small class="muted">(andere Spieler setzen 1 Token auf eine andere Lücke)</small></span></label>
+
+          <h3>Zeit</h3>
+          <label class="switch"><input type="checkbox" id="chk-time"><span class="slider"></span>
+            <span>Zeit tracken <small class="muted">(Hör- und Denkzeit bis zum Auflösen, nur zur Anzeige)</small></span></label>
         </details>
 
         <details class="panel advanced" id="stats">
@@ -182,7 +186,19 @@
           </label>
           <datalist id="stats-countries"></datalist>
           <div id="stats-result" class="stats-result"></div>
+          <h3>Platzierungen aller Länder und Jahre</h3>
+          <div id="heatmap" class="heatmap"></div>
+          <div id="heat-detail" class="heat-detail muted small">Tippe auf ein Feld für Lied und Platzierung.</div>
+          <div class="heat-legend small">
+            <span><i class="hm win"></i>Sieg</span>
+            <span class="heat-scale">Finale: hinten <i class="hm h0"></i><i class="hm h1"></i><i class="hm h2"></i><i class="hm h3"></i><i class="hm h4"></i> vorn</span>
+            <span><i class="hm hf"></i>Halbfinal-Aus</span>
+            <span><i class="hm none"></i>ohne Wertung</span>
+            <span><i class="hm cancelled"></i>2020 abgesagt</span>
+          </div>
         </details>
+
+        <div class="center"><button type="button" class="link-btn" id="btn-music">🎧 Nur Musik hören</button></div>
 
         <div class="start-bar">
           <div class="pool-count"><b id="pool-count">0</b> Lieder im Pool <span class="muted small" id="pool-need"></span></div>
@@ -205,6 +221,33 @@
       <div id="reveal" class="reveal" hidden></div>
     </section>
 
+    <!-- ================= MUSIK ================= -->
+    <section id="screen-music" class="screen" hidden>
+      <div class="panel music">
+        <div class="music-top">
+          <button type="button" class="btn small ghost" id="btn-music-back">← Zurück</button>
+          <span class="muted small" id="music-count"></span>
+        </div>
+        <div id="music-card" class="music-card"></div>
+        <div class="music-progress">
+          <span id="music-pos">0:00</span>
+          <input type="range" id="music-seek" min="0" max="1000" value="0" aria-label="Position im Lied">
+          <span id="music-dur">0:00</span>
+        </div>
+        <div class="music-controls">
+          <button type="button" class="btn music-skip" id="btn-music-prev" aria-label="Vorheriges Lied">⏮</button>
+          <button type="button" class="btn play big" id="btn-music-play"></button>
+          <button type="button" class="btn music-skip" id="btn-music-next" aria-label="Nächstes Lied">⏭</button>
+        </div>
+        <div class="stall" id="music-stall" hidden>
+          <span>Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.</span>
+          <div class="row"><button type="button" class="btn small" id="btn-music-player">📺 Player zeigen</button></div>
+        </div>
+        <h3>Als Nächstes</h3>
+        <ol id="music-queue" class="music-queue"></ol>
+      </div>
+    </section>
+
     <!-- ================= ENDE ================= -->
     <section id="screen-end" class="screen" hidden>
       <canvas id="fireworks" hidden aria-hidden="true"></canvas>
@@ -214,8 +257,11 @@
         <div id="end-sub" class="muted"></div>
         <div id="end-podium" class="podium"></div>
         <div id="end-ranking"></div>
+        <div id="end-times" class="end-times" hidden></div>
+        <audio id="end-audio" src="audio/te-deum.mp3" preload="none"></audio>
         <div class="row center">
           <button class="btn primary" id="btn-new-game">Neues Spiel</button>
+          <button type="button" class="btn ghost" id="btn-end-audio" hidden>🔇 Musik aus</button>
         </div>
       </div>
       <div class="panel end-cards">
@@ -240,8 +286,9 @@
         <button class="btn primary" value="close">Schließen</button>
       </div>
       <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
-        (oder tippe auf eine Lücke) und löse auf. Gleiche Jahre zählen als richtig. Das erste Überspringen ist gratis, danach kostet es 1 Token.
+        und löse auf. Gleiche Jahre zählen als richtig. Das erste Überspringen ist gratis, danach kostet es 1 Token.
         Erreicht jemand das Ziel, spielen die übrigen Spieler die Runde noch zu Ende, damit alle gleich oft dran waren. Allein spielst du, bis du das Ziel erreichst, und siehst am Ende deine Rundenzahl.</p>
+      <p class="muted small">Musik bei der Siegerehrung: Marc-Antoine Charpentier, Prélude du Te Deum, vom YouTube-Kanal <a href="https://www.youtube.com/watch?v=huLba3yG8D8" target="_blank" rel="noopener">Les Arts Florissants</a>, Lizenz Creative Commons Attribution. Für die App gekürzt, in der Lautstärke angeglichen und ausgeblendet.</p>
       <p class="muted small">Tokens sind sozusagen die Bonuspunkte: Interpret, Titel und Land bringen je ½ Token. Die Platzierung bringt exakt 1 Token und bis zu 2 Plätze daneben ½, besser/schlechter ½. Das genaue Jahr bringt exakt 1 Token und bis zu 2 Jahre daneben ½, aber nur, wenn die Karte richtig liegt.
         Bei gleich vielen Karten gewinnt, wer mehr Tokens hat. Beim Auflösen zeigt die linke Karte deine Eingaben in Grün (richtig), Gelb (fast richtig) oder Rot (falsch).</p>
       <p class="muted small">Klauen (nur wenn eingeschaltet): Ein anderer Spieler setzt 1 Token auf eine andere Lücke. Liegt der

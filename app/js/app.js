@@ -2,7 +2,7 @@
 import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
-  fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions,
+  fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -221,6 +221,7 @@ function applySettings(st) {
   if (f.to && !f.toMax) $('#inp-to').value = Math.min(f.to, setup.maxYear);
   setup.countries = new Set((f.countries || []).filter((c) => COUNTRY_NAMES.has(c)));
   if (st.rules) writeRules(st.rules);
+  $('#chk-time').checked = !!st.trackTime;
 }
 
 function initSetup() {
@@ -284,6 +285,7 @@ function initSetup() {
   $('#inp-target').addEventListener('input', syncTarget);
   $('#stats-countries').innerHTML = [...COUNTRY_NAMES.values()].sort((a, b) => a.localeCompare(b, 'de')).map((n) => `<option value="${esc(n)}"></option>`).join('');
   $('#stats-input').addEventListener('input', renderStats);
+  $('#stats').addEventListener('toggle', () => { if ($('#stats').open) { renderHeatmap(); renderStats(); } });
   $('#inp-topn').addEventListener('focus', () => { if (setup.hasPop) $('input[name=pool][value=topn]').checked = true; updateCount(); });
   $('#country-chips').addEventListener('click', (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
@@ -344,6 +346,8 @@ function newTurn(song) {
     timeUp: false,
     released: false,
     renewals: 0,
+    elapsed: 0,
+    clockOn: false,
     result: null,
   };
 }
@@ -356,9 +360,10 @@ function startGame() {
     target: Math.min(30, Math.max(3, parseInt($('#inp-target').value, 10) || 10)),
     filter: readFilter(),
     rules: readRules(),
+    trackTime: $('#chk-time').checked,
   };
   store.set(KEY_SETTINGS, settings);
-  state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [] })), active: 0, round: 1, used: [], cur: null, finished: false };
+  state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [], time: 0 })), active: 0, round: 1, used: [], cur: null, finished: false };
   for (const p of state.players) {
     const s = draw();
     if (s) p.timeline.push(s.id);
@@ -378,6 +383,7 @@ function resumeGame(saved) {
   save();
   render();
   loadAudio(false);
+  if (state.cur.clockOn) clockStart();
 }
 
 function startTurn() {
@@ -403,6 +409,7 @@ function loadAudio(tryAutoplay) {
 
 function replaceSong(reason) {
   // Lied ersetzen (Fehler/Überspringen): Klau-Token zurück, Rest der Runde neu
+  clockStop();
   const c = state.cur;
   if (c.steal) state.players[c.steal.p].tokens += 1;
   startTurn();
@@ -416,6 +423,7 @@ function setGap(g) {
     c.gap = g;
     if (rules().place === 'neighbor') { c.place.neighborId = null; c.place.guess = null; }
   }
+  if (g !== null) clockStart();
   save(); render();
   if (g !== null) scrollToGap(g);
 }
@@ -519,6 +527,7 @@ async function tryReveal() {
 function reveal() {
   const c = state.cur;
   if (c.phase !== 'listen' || c.gap === null) return;
+  clockStop();
   stealPick = null;
   hidePlayer();
   const p = activeP();
@@ -591,6 +600,7 @@ function nextTurn() {
 }
 
 function endGame() {
+  clockStop();
   hidePlayer();
   YTP.stop();
   state.finished = true;
@@ -628,9 +638,35 @@ function endGame() {
     `<li value="${r.rank}"><span class="r-name">${esc(r.name)}</span><span class="r-cards">${cardsText(r)}</span><span class="r-tokens">${tokenLabel(r.tokens)}</span></li>`).join('')}</ol>`;
   $('#end-tabs').innerHTML = solo ? '' : ranking.map((r) => `<button type="button" class="btn small ghost" data-end="${r.i}">${esc(r.name)}</button>`).join('');
   $$('#end-tabs [data-end]').forEach((b) => b.addEventListener('click', () => showEndCards(+b.dataset.end)));
+  renderEndTimes(solo);
   showEndCards(top.i);
   showScreen('end');
-  if (!solo || top.sc >= target) startFireworks($('#fireworks'));
+  if (!solo || top.sc >= target) {
+    startFireworks($('#fireworks'));
+    playEndMusic();
+  }
+}
+
+/** Gesamtzeit groß, bei mehreren Spielern im Vergleich, schnellste zuerst. */
+function renderEndTimes(solo) {
+  const box = $('#end-times');
+  box.hidden = !state.settings.trackTime;
+  if (box.hidden) return;
+  const list = state.players.slice().sort((a, b) => a.time - b.time);
+  const max = Math.max(...list.map((p) => p.time), 1);
+  box.innerHTML = solo
+    ? `<h3>⏱ Gesamtzeit</h3><div class="time-big">${fmtDuration(list[0].time)}</div>`
+    : `<h3>⏱ Gesamtzeit</h3>${list.map((p) =>
+      `<div class="time-row"><span class="time-name">${esc(p.name)}</span><span class="time-bar"><i style="width:${(p.time / max) * 100}%"></i></span><span class="time-val">${fmtDuration(p.time)}</span></div>`).join('')}`;
+}
+
+function playEndMusic() {
+  const a = $('#end-audio');
+  const b = $('#btn-end-audio');
+  b.hidden = false;
+  a.currentTime = 0;
+  // Blockt der Browser den Start, bleibt der Knopf zum Einschalten
+  a.play().catch(() => { b.textContent = '🔊 Musik an'; });
 }
 
 /** Zeitleiste und falsch geratene Karten eines Spielers in der Auswertung. */
@@ -641,12 +677,14 @@ function showEndCards(i) {
   const wrong = p.wrong.map(S).filter(Boolean).sort((a, b) => a.jahr - b.jahr);
   $('#end-wrong-title').textContent = `Falsch geraten (${wrong.length})`;
   $('#end-wrong').innerHTML = wrong.map((s) => cardHTML(s, 'wrong')).join('') || '<div class="muted">Keine falschen Karten.</div>';
+  fitOverlap($('#end-tl'));
+  fitOverlap($('#end-wrong'));
   $$('#end-tabs [data-end]').forEach((b) => b.classList.toggle('on', +b.dataset.end === i));
 }
 
 /* ------------------------------------------------------------------ Rendern */
 function showScreen(name) {
-  for (const s of ['setup', 'game', 'end']) $(`#screen-${s}`).hidden = s !== name;
+  for (const s of ['setup', 'game', 'end', 'music']) $(`#screen-${s}`).hidden = s !== name;
   $('#btn-menu').hidden = name !== 'game';
   document.body.classList.toggle('on-setup', name === 'setup');
   window.scrollTo(0, 0);
@@ -772,19 +810,30 @@ function renderTimeline() {
     for (let i = 0; i <= tl.length; i++) {
       const placed = c.gap === i;
       const stolen = c.steal && c.steal.gap === i;
-      const cls = ['gap', placed ? 'placed' : '', stolen ? 'stolen' : '', stealPick !== null ? 'steal-mode' : ''].join(' ');
+      const picking = stealPick !== null; // nur beim Klauen gibt es antippbare Lücken, sonst wird gezogen
+      const cls = ['gap', placed ? 'placed' : '', stolen ? 'stolen' : '', picking ? 'steal-mode' : ''].join(' ');
       const label = stolen ? `<span class="gap-badge">${esc(state.players[c.steal.p].name)}</span>` : '';
-      html += `<div class="${cls}" data-gap="${i}" role="button" aria-label="Lücke ${i + 1}">${placed ? mysteryHTML(c.steal ? 'locked' : '') : '<span class="gap-plus">+</span>'}${label}</div>`;
+      html += `<div class="${cls}" data-gap="${i}" ${picking ? `role="button" aria-label="Lücke ${i + 1}"` : ''}>${placed ? mysteryHTML(c.steal ? 'locked' : '') : picking ? '<span class="gap-plus">+</span>' : ''}${label}</div>`;
       if (i < tl.length) html += cardHTML(tl[i]);
     }
   }
   el.innerHTML = html;
+  fitOverlap(el);
   el.scrollLeft = scroll;
   $$('.gap', el).forEach((g) => g.addEventListener('click', () => {
-    const i = +g.dataset.gap;
-    if (stealPick !== null) setSteal(i); else setGap(i);
+    if (stealPick !== null) setSteal(+g.dataset.gap);
   }));
   $$('[data-drag]', el).forEach(bindDrag);
+}
+
+/** Karten überlappen lassen, sobald sonst seitlich gescrollt werden müsste. */
+function fitOverlap(el) {
+  if (!el.clientWidth) return;
+  const cards = $$('.card', el);
+  const pad = parseFloat(getComputedStyle(el).getPropertyValue('--tl-pad')) || 0;
+  const px = cards.length ? overlapPx(cards.length, cards[0].offsetWidth + 8, el.clientWidth - 2 * pad) : 0;
+  el.style.setProperty('--overlap', `${px}px`);
+  el.classList.toggle('overlap', px > 0);
 }
 
 function renderDeck() {
@@ -795,7 +844,7 @@ function renderDeck() {
   const audioNote = song.youtube_id ? '' : '<div class="muted small">Kein Video – Dev-Modus ohne Audio</div>';
   if (c.gap === null) {
     d.innerHTML = `<div class="deck-slot">${mysteryHTML('pulse')}</div>
-      <div class="deck-hint">Ziehe die Karte an die richtige Stelle deiner Zeitleiste – oder tippe auf eine Lücke <b>+</b>.${audioNote}</div>`;
+      <div class="deck-hint">Ziehe die Karte an die richtige Stelle deiner Zeitleiste.${audioNote}</div>`;
     $$('[data-drag]', d).forEach(bindDrag);
   } else {
     d.innerHTML = c.steal
@@ -826,8 +875,8 @@ function renderControls() {
     <div class="row player-row">
       <button class="btn play big" id="btn-play" ${hasAudio && !locked ? '' : 'disabled'}>${playLabel()}</button>
       <button class="btn" id="btn-restart" ${hasAudio && !locked ? '' : 'disabled'}>↺ Neu ab Start</button>
-      <button class="btn" id="btn-show-player" ${hasAudio ? '' : 'disabled'} aria-label="Player einblenden, zum Beispiel bei Werbung" title="Player einblenden, zum Beispiel bei Werbung">📺</button>
     </div>
+    <div class="row"><button class="btn hint" id="btn-hint" ${hasAudio ? '' : 'disabled'}>💡 Hinweis: Video einblenden <small>(gratis)</small></button></div>
     ${limitBar}
     ${locked ? '<div class="muted small">Zu wenig Tokens zum Weiterhören. Du kannst trotzdem auflösen.</div>' : ''}
     <div class="stall" id="stall" ${c.stalled ? '' : 'hidden'}>
@@ -852,8 +901,8 @@ function renderControls() {
   });
   $('#btn-skip').onclick = skip;
   $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
-  $('#btn-show-player').onclick = showPlayer;
-  $('#btn-stall-player').onclick = showPlayer;
+  $('#btn-hint').onclick = () => showPlayer('hint');
+  $('#btn-stall-player').onclick = () => showPlayer('ad');
   if (showSteal) $('#btn-steal').onclick = openSteal;
   $('#btn-reveal').onclick = tryReveal;
 }
@@ -1005,6 +1054,7 @@ function renderReveal() {
   }
   if (r.gain.tokens) lines.push(`<div class="line ok">+${tokenLabel(r.gain.tokens)} für ${esc(p.name)}</div>`);
   if (r.gain.cards) lines.push(`<div class="line ok big-line">+${r.gain.cards} Bonuskarte für ${esc(p.name)}!</div>`);
+  if (state.settings.trackTime) lines.push(`<div class="line">⏱ ${fmtDuration(c.elapsed)} für dieses Lied · ${esc(p.name)} gesamt ${fmtDuration(p.time)}</div>`);
   const gameOver = targetReached() && nextPlayer() === state.first;
   const nextName = state.players[nextPlayer()].name;
   const hasOwn = r.guess && (R.exact > 0 || R.country !== 'off' || R.place !== 'off' || R.artist || R.title);
@@ -1024,6 +1074,7 @@ function showTimeline(i) {
   $('#tl-title').textContent = `Zeitleiste von ${p.name} (${p.timeline.length} Karten)`;
   $('#tl-view').innerHTML = tlSongs(p).map((s) => cardHTML(s)).join('') || '<div class="muted">Noch keine Karten.</div>';
   $('#dlg-timeline').showModal();
+  fitOverlap($('#tl-view'));
 }
 
 function scrollToGap(g) {
@@ -1134,7 +1185,7 @@ function onDragEnd() {
   drag = null;
   if (d && d.moved && d.overDeck) { if (state.cur.gap !== null) setGap(null); }
   else if (d && d.moved && d.gap !== null) setGap(d.gap);
-  else if (d && !d.moved && state.cur.gap === null) toast('Ziehe die Karte in die Zeitleiste oder tippe auf eine Lücke.');
+  else if (d && !d.moved && state.cur.gap === null) toast('Ziehe die Karte in die Zeitleiste.');
 }
 function onDragCancel() { cleanupDrag(); drag = null; }
 
@@ -1235,14 +1286,21 @@ function handleBlocked(cur) {
 
 /* ------------------------------------------------------------------ Player einblenden (Werbung überspringen) */
 let playerShown = false;
+let playerMode = 'ad'; // ad: Ausschnitt zum Überspringen | hint: ganzes Video als Hinweis
 let shownWhilePlaying = false;
 
-function showPlayer() {
+function showPlayer(mode = 'ad') {
   playerShown = true;
+  playerMode = mode;
   shownWhilePlaying = YTP.state() === YTP.State.PLAYING;
   const wrap = $('#yt-wrap');
-  wrap.classList.add('show', 'masked');
+  wrap.classList.add('show');
+  wrap.classList.toggle('masked', mode === 'ad');
   wrap.removeAttribute('aria-hidden');
+  $('#yt-bar-text').textContent = mode === 'hint'
+    ? 'Hinweis: Das Video bleibt sichtbar, bis du es schließt.'
+    : 'Sobald im Ausschnitt „Überspringen“ erscheint, tippe darauf. Das Fenster schließt sich, wenn das Lied startet.';
+  $('#btn-unmask-player').hidden = mode === 'hint';
   $('#yt-bar').hidden = false;
 }
 
@@ -1254,14 +1312,158 @@ function hidePlayer() {
   $('#yt-bar').hidden = true;
 }
 
+/* ------------------------------------------------------------------ Zeit tracken */
+let clockFrom = null; // Beginn der laufenden Messung, die Summen stehen im Spielstand
+
+/** Läuft ab dem ersten Abspielen oder Ziehen. Lade- und Werbezeit zählen so nicht mit. */
+function clockStart() {
+  const c = state && state.cur;
+  if (!c || !state.settings.trackTime || c.phase !== 'listen' || clockFrom !== null || document.hidden) return;
+  c.clockOn = true;
+  clockFrom = Date.now();
+}
+
+function clockStop() {
+  if (clockFrom === null) return;
+  const dt = Date.now() - clockFrom;
+  clockFrom = null;
+  state.cur.elapsed += dt;
+  activeP().time += dt;
+}
+
+/** Versteckter Tab zählt nicht, beim Schließen bleibt die bisherige Zeit gespeichert. */
+function clockVisibility() {
+  if (document.hidden) { clockStop(); save(); }
+  else if (state && state.cur && state.cur.clockOn) clockStart();
+}
+
+/* ------------------------------------------------------------------ Nur Musik hören */
+let music = null; // { list, i, status, errors }, nur solange der Player offen ist
+let musicSeeking = false;
+
+function openMusic() {
+  const list = shuffle(filterPool(DATA.songs, readFilter(), DEV).filter(hasVideo));
+  if (!list.length) { toast('Keine Lieder mit Video in dieser Auswahl.'); return; }
+  music = { list, i: 0, status: 'idle', errors: 0 };
+  showScreen('music');
+  musicLoad();
+}
+
+function closeMusic() {
+  music = null;
+  hidePlayer();
+  YTP.stop();
+  showScreen('setup');
+}
+
+function musicLoad() {
+  const s = music.list[music.i];
+  hidePlayer();
+  $('#music-stall').hidden = true;
+  musicStatus('loading');
+  YTP.load(s.youtube_id, s.start_sek || 0, true);
+  renderMusic();
+}
+
+function musicGo(step) {
+  const n = music.list.length;
+  music.i = (music.i + step + n) % n;
+  musicLoad();
+}
+
+function musicStatus(st) {
+  music.status = st;
+  $('#btn-music-play').innerHTML = st === 'playing' ? '⏸ Pause'
+    : st === 'loading' ? '<span class="spin"></span> Lädt …' : '▶ Abspielen';
+  const eq = $('#music-card .eq');
+  if (eq) eq.classList.toggle('on', st === 'playing');
+}
+
+function renderMusic() {
+  const s = music.list[music.i];
+  const n = music.list.length;
+  $('#music-count').textContent = `Lied ${music.i + 1} von ${n}`;
+  $('#music-card').innerHTML = `<div class="music-cover"><span class="c-year">${s.jahr}</span>${flagHTML(s.land_iso)}<span class="eq ${music.status === 'playing' ? 'on' : ''}"><i></i><i></i><i></i></span></div>
+    <div class="music-title">${esc(s.titel)}</div>
+    <div class="music-artist">${esc(s.interpret)}</div>
+    <div class="music-meta">${esc(s.land)} · ${esc(placementText(s))}</div>`;
+  const next = Array.from({ length: Math.min(8, n - 1) }, (_, k) => (music.i + k + 1) % n);
+  $('#music-queue').innerHTML = next.map((i) => {
+    const q = music.list[i];
+    return `<li><button type="button" data-i="${i}"><b>${q.jahr}</b><span>${esc(q.interpret)} – ${esc(q.titel)}</span></button></li>`;
+  }).join('');
+  musicTick();
+}
+
+function musicTick() {
+  if (!music) return;
+  const dur = YTP.duration();
+  const pos = YTP.position();
+  $('#music-pos').textContent = fmtDuration(pos * 1000);
+  $('#music-dur').textContent = fmtDuration(dur * 1000);
+  if (!musicSeeking) $('#music-seek').value = dur ? Math.round((pos / dur) * 1000) : 0;
+}
+
+function musicState(st) {
+  if (st === YTP.State.PLAYING) {
+    music.errors = 0;
+    $('#music-stall').hidden = true;
+    musicStatus('playing');
+  } else if (st === YTP.State.BUFFERING) musicStatus('loading');
+  else if (st === YTP.State.PAUSED || st === YTP.State.CUED) musicStatus('paused');
+  else if (st === YTP.State.ENDED) musicGo(1);
+}
+
+function musicError(code) {
+  logError(music.list[music.i], code);
+  music.errors += 1;
+  if (music.errors >= 5) { musicStatus('idle'); toast('Mehrere Videos nicht abspielbar, bitte später erneut versuchen.', 5000); return; }
+  musicGo(1);
+}
+
+function musicStall() {
+  musicStatus('idle');
+  $('#music-stall').hidden = false;
+}
+
+function initMusic() {
+  $('#btn-music').onclick = openMusic;
+  $('#btn-music-back').onclick = closeMusic;
+  $('#btn-music-play').onclick = () => {
+    if (music.status === 'idle' || music.status === 'paused') musicStatus('loading');
+    YTP.toggle();
+  };
+  $('#btn-music-next').onclick = () => musicGo(1);
+  $('#btn-music-prev').onclick = () => {
+    const s = music.list[music.i];
+    if (YTP.position() - (s.start_sek || 0) > 3) YTP.restart(); else musicGo(-1);
+  };
+  $('#btn-music-player').onclick = () => showPlayer('ad');
+  const seek = $('#music-seek');
+  seek.addEventListener('input', () => { musicSeeking = true; });
+  seek.addEventListener('change', () => {
+    musicSeeking = false;
+    YTP.seek((seek.value / 1000) * YTP.duration());
+  });
+  $('#music-queue').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-i]');
+    if (!b) return;
+    music.i = +b.dataset.i;
+    musicLoad();
+  });
+  setInterval(musicTick, 500);
+}
+
 /* ------------------------------------------------------------------ Player-Ereignisse */
 function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
   YTP.initPlayer({
     onState(st) {
       // Werbung vorbei, das Lied lädt oder startet: Player sofort verstecken, damit nichts verraten wird
-      if (playerShown && !shownWhilePlaying && (st === YTP.State.PLAYING || st === YTP.State.BUFFERING)) hidePlayer();
+      if (playerShown && playerMode === 'ad' && !shownWhilePlaying && (st === YTP.State.PLAYING || st === YTP.State.BUFFERING)) hidePlayer();
       if (st !== YTP.State.PLAYING) shownWhilePlaying = false;
+      if (music) { musicState(st); return; }
+      if (st === YTP.State.PLAYING) clockStart();
       if (st === YTP.State.PLAYING) setAudioStatus('playing');
       else if (st === YTP.State.BUFFERING) setAudioStatus('loading');
       else if (st === YTP.State.PAUSED) setAudioStatus('paused');
@@ -1274,6 +1476,7 @@ function initAudio() {
       }
     },
     onError(code, cur) {
+      if (music) { musicError(code); return; }
       if (!state || !state.cur) return;
       const song = S(state.cur.songId);
       if (!song || !cur || cur.videoId !== song.youtube_id) return;
@@ -1281,19 +1484,58 @@ function initAudio() {
       console.warn('YouTube-Fehler', code, song.id, song.youtube_id);
       if (state.cur.phase === 'listen') replaceSong(`Video nicht abspielbar (Fehler ${code}) – neues Lied.`);
     },
-    onStalled: handleStall,
+    onStalled(st, cur) { if (music) musicStall(); else handleStall(st, cur); },
     onRetry(attempt) { loadAttempt = attempt; setAudioStatus('loading'); },
-    onBlocked: handleBlocked,
+    onBlocked(cur) { if (music) musicStall(); else handleBlocked(cur); },
     onApiFail() { toast('YouTube-Player konnte nicht geladen werden (offline?).', 5000); },
   });
 }
 
 /* ------------------------------------------------------------------ Statistik */
+let heat = null; // wird erst beim ersten Öffnen der Statistik gebaut
+
+function renderHeatmap() {
+  if (heat) return;
+  heat = heatMatrix(DATA.songs);
+  const cellClass = (c) => (c.kind === 'final' ? `h${Math.min(4, Math.floor(c.heat * 5))}` : c.kind);
+  const head = `<div class="hm-row"><span class="hm-name"></span>${heat.years.map((y) => `<span class="hm-year">${y % 10 === 0 ? y : ''}</span>`).join('')}</div>`;
+  const rows = heat.countries.map((k) => `<div class="hm-row" data-iso="${esc(k.iso)}"><span class="hm-name">${esc(k.name)}</span>${heat.years.map((y) => {
+    const c = k.cells.get(y);
+    return c ? `<i class="hm ${cellClass(c)}" data-y="${y}"></i>` : '<i class="hm"></i>';
+  }).join('')}</div>`).join('');
+  $('#heatmap').innerHTML = head + rows;
+  const show = (e) => {
+    const cell = e.target.closest('[data-y]');
+    if (!cell) return;
+    const k = heat.countries.find((x) => x.iso === cell.parentElement.dataset.iso);
+    const y = +cell.dataset.y;
+    $$('#heatmap .hm.on').forEach((x) => x.classList.remove('on'));
+    cell.classList.add('on');
+    $('#heat-detail').innerHTML = k.cells.get(y).songs.map((s) =>
+      `<div><b>${esc(k.name)} ${y}</b>: ${esc(s.interpret)} – ${esc(s.titel)} · ${esc(placementText(s))}</div>`).join('');
+  };
+  $('#heatmap').addEventListener('click', show);
+  $('#heatmap').addEventListener('mouseover', show);
+}
+
+/** Das gesuchte Land steht hervorgehoben ganz oben, sonst alphabetisch. */
+function highlightHeat(iso) {
+  if (!heat) return;
+  const box = $('#heatmap');
+  const order = [...heat.countries].sort((a, b) => (b.iso === iso) - (a.iso === iso));
+  for (const k of order) {
+    const row = $(`.hm-row[data-iso="${CSS.escape(k.iso)}"]`, box);
+    row.classList.toggle('sel', k.iso === iso);
+    box.appendChild(row);
+  }
+}
+
 function renderStats() {
   const box = $('#stats-result');
   const text = $('#stats-input').value;
+  const iso = text.trim() ? matchCountry(text, COUNTRY_NAMES) : null;
+  highlightHeat(iso);
   if (!text.trim()) { box.innerHTML = ''; return; }
-  const iso = matchCountry(text, COUNTRY_NAMES);
   if (!iso) { box.innerHTML = '<div class="muted small">Land aus der Liste wählen.</div>'; return; }
   const st = countryStats(DATA.songs, iso);
   const notes = [
@@ -1352,6 +1594,16 @@ async function main() {
     YTP.stop(); store.del(KEY_STATE); state = null; location.reload();
   };
   $('#btn-new-game').onclick = () => { state = null; location.reload(); };
+  const endAudio = $('#end-audio');
+  const endAudioBtn = $('#btn-end-audio');
+  endAudioBtn.onclick = () => { if (endAudio.paused) endAudio.play(); else endAudio.pause(); };
+  endAudio.addEventListener('play', () => { endAudioBtn.textContent = '🔇 Musik aus'; });
+  endAudio.addEventListener('pause', () => { endAudioBtn.textContent = '🔊 Musik an'; });
+  document.addEventListener('visibilitychange', clockVisibility);
+  window.addEventListener('pagehide', () => { clockStop(); save(); });
+  const tlObserver = new ResizeObserver((list) => list.forEach((x) => fitOverlap(x.target)));
+  for (const id of ['#timeline', '#tl-view', '#end-tl', '#end-wrong']) tlObserver.observe($(id));
+  initMusic();
 
   try {
     DATA = await loadSongs();
@@ -1393,7 +1645,12 @@ window.ESC = {
   score: (p) => score(p),
   stall: (st, cur) => handleStall(st, cur),
   countryOptions,
-  showPlayer: () => showPlayer(),
+  showPlayer: (mode) => showPlayer(mode),
+  get music() { return music; },
+  openMusic: () => openMusic(),
+  closeMusic: () => closeMusic(),
+  fit: () => fitOverlap($('#timeline')),
+  end: () => endGame(),
   matchText,
   render: () => render(),
   errors: readErrors,

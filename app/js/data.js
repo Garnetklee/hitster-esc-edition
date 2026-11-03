@@ -265,3 +265,54 @@ export function shuffle(arr) {
 }
 
 export const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+/** Überlappung der Karten in px: 0, solange alles passt, sonst so wenig wie möglich, begrenzt auf maxShare der Kartenbreite. */
+export function overlapPx(n, slotW, avail, maxShare = 0.45) {
+  if (n < 2) return 0;
+  const need = n * slotW - avail;
+  if (need <= 0) return 0;
+  // n-1 Überlappungen, dazu links und rechts je eine halbe als Platz fürs Auseinanderschieben
+  return Math.min(Math.ceil(need / Math.max(n - 2, 0.5)), Math.round(slotW * maxShare));
+}
+
+/** Millisekunden als m:ss, ab einer Stunde als h:mm:ss. */
+export function fmtDuration(ms) {
+  const total = Math.max(0, Math.round((ms || 0) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
+/** Heatmap-Wert eines Beitrags: kind win | final | hf | none | cancelled, heat 0–1 nur im Finale. */
+export function heatValue(s) {
+  if (isCancelled(s)) return { kind: 'cancelled', heat: -3 };
+  if (s.sieger) return { kind: 'win', heat: 2 };
+  if (/disqualifiziert|zurueckgezogen|ohne_wertung/.test(s.sonderfall) || s.platz === null) return { kind: 'none', heat: -2 };
+  if (s.runde_ende !== 'Finale') return { kind: 'hf', heat: -1 };
+  const heat = s.teilnehmer > 1 ? 1 - (s.platz - 1) / (s.teilnehmer - 1) : 1;
+  return { kind: 'final', heat: Math.max(0, Math.min(1, heat)) };
+}
+
+/** Land × Jahr für die Heatmap, bei mehreren Beiträgen im Jahr zählt der beste. Länder alphabetisch. */
+export function heatMatrix(songs) {
+  const years = songs.map((s) => s.jahr);
+  const from = Math.min(...years);
+  const to = Math.max(...years);
+  const countries = new Map();
+  for (const s of songs) {
+    if (!countries.has(s.land_iso)) countries.set(s.land_iso, { iso: s.land_iso, name: s.land, cells: new Map() });
+    const cells = countries.get(s.land_iso).cells;
+    const v = heatValue(s);
+    const old = cells.get(s.jahr);
+    if (!old) cells.set(s.jahr, { ...v, songs: [s] });
+    else {
+      old.songs.push(s);
+      if (v.heat > old.heat) { old.kind = v.kind; old.heat = v.heat; }
+    }
+  }
+  return {
+    years: Array.from({ length: to - from + 1 }, (_, i) => from + i),
+    countries: [...countries.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')),
+  };
+}

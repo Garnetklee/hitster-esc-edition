@@ -1,5 +1,5 @@
 // Einfacher Service Worker: App-Shell cachen, Daten-JSON network-first
-const VERSION = 'esc-hitster-v11';
+const VERSION = 'esc-hitster-v12';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/player.js', 'js/settings.js', 'js/fireworks.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
@@ -20,6 +20,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return; // YouTube, Flaggen usw. direkt aus dem Netz
+  if (url.pathname.endsWith('.mp3')) return; // Safari verlangt für Audio Range-Antworten, die der Cache nicht liefert
 
   if (url.pathname.endsWith('.json')) {
     // Daten: network-first, Cache als Fallback (offline)

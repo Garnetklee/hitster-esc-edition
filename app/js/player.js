@@ -121,3 +121,10 @@ export function stop() {
 }
 
 export const currentVideo = () => current;
+
+export const position = () => (ready && player.getCurrentTime ? player.getCurrentTime() || 0 : 0);
+export const duration = () => (ready && player.getDuration ? player.getDuration() || 0 : 0);
+
+export function seek(sec) {
+  if (ready && player.seekTo) player.seekTo(sec, true);
+}

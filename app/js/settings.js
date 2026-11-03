@@ -1,6 +1,6 @@
 // Spielregeln, fertige Modi und Migration gespeicherter Stände (ohne DOM)
 
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 export const CONVERT_TARGETS = [3, 4, 5, 6, 8, 10];
 export const TIME_LIMITS = [0, 15, 20, 30, 45, 60];
 export const TARGET_CHOICES = [3, 5, 7, 10, 15];
@@ -92,6 +92,7 @@ export function migrateSettings(st) {
   return {
     ...rest,
     v: SETTINGS_VERSION,
+    trackTime: !!st.trackTime,
     rules: classic ? { ...presetById(DEFAULT_PRESET).rules } : upgradeRules(old),
   };
 }
@@ -112,6 +113,7 @@ export function migrateState(saved) {
   const oldBonus = set.rules.bonus;
   set.rules = upgradeRules(set.rules);
   saved.first = saved.first ?? 0;
+  set.trackTime = !!set.trackTime;
   for (const p of saved.players) {
     const bonus = p.bonus || 0;
     delete p.bonus;
@@ -122,6 +124,7 @@ export function migrateState(saved) {
     p.bonusCards = p.bonusCards || 0;
     p.freeSkips = p.freeSkips ?? 1;
     p.wrong = p.wrong || [];
+    p.time = p.time || 0;
   }
   const c = saved.cur;
   if (c) {
@@ -132,6 +135,8 @@ export function migrateState(saved) {
     c.timeUp = !!c.timeUp;
     c.released = !!c.released;
     c.renewals = c.renewals || 0;
+    c.elapsed = c.elapsed || 0;
+    c.clockOn = !!c.clockOn;
     c.country = { text: '', ...c.country };
     c.place = { free: '', hf: false, ...c.place };
   }

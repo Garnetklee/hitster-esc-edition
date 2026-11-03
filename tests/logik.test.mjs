@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
-  fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo,
+  fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue,
 } from '../app/js/data.js';
 import {
   DEFAULT_RULES, PRESETS, presetById, presetMatches, matchingPreset, migrateSettings, migrateState, SETTINGS_VERSION,
@@ -160,4 +160,51 @@ test('Migration laufendes Spiel: Bonus wird zu Tokens oder Bonuskarten', () => {
   assert.deepEqual([convert.players[0].tokens, convert.players[0].bonusCards], [4, 1]);
   const twice = migrateState(migrateState(game('count')));
   assert.equal(twice.players[0].tokens, 9);
+});
+
+test('Überlappung: erst wenn nötig, dann alles passend, höchstens 45 % der Karte', () => {
+  assert.equal(overlapPx(1, 146, 100), 0);
+  assert.equal(overlapPx(5, 146, 800), 0);
+  const px = overlapPx(8, 146, 800);
+  assert.ok(px > 0 && px < 146 * 0.45);
+  assert.ok(8 * 146 - 6 * px <= 800);
+  assert.equal(overlapPx(30, 146, 800), Math.round(146 * 0.45));
+});
+
+test('Zeitanzeige', () => {
+  assert.equal(fmtDuration(0), '0:00');
+  assert.equal(fmtDuration(83000), '1:23');
+  assert.equal(fmtDuration(3723000), '1:02:03');
+});
+
+test('Heatmap mit echten Daten: Sieg, Sonderfälle und bester Beitrag im Jahr', () => {
+  const m = heatMatrix(songs);
+  assert.equal(m.years[0], 1956);
+  assert.equal(m.years.at(-1), 2026);
+  const de = m.countries.find((k) => k.iso === 'DE');
+  assert.equal(de.cells.get(2010).kind, 'win'); // Lena
+  assert.equal(de.cells.get(2020).kind, 'cancelled');
+  assert.equal(de.cells.get(1956).kind, 'none');
+  assert.equal(de.cells.get(1956).songs.length, 2);
+  assert.equal(m.countries.find((k) => k.iso === 'CH').cells.get(1956).kind, 'win'); // Lys Assia, 2. Beitrag ohne Wertung
+  assert.equal(de.cells.has(1994) && de.cells.get(1994).kind, 'final');
+  for (const s of songs) {
+    const v = heatValue(s);
+    if (v.kind === 'final') assert.ok(v.heat >= 0 && v.heat <= 1, s.id);
+  }
+  const hf = songs.find((s) => s.runde_ende === 'HF1' && s.platz !== null);
+  assert.equal(heatValue(hf).kind, 'hf');
+});
+
+test('Migration: Zeit tracken ergänzt alte Stände', () => {
+  assert.equal(migrateSettings({ v: 4, rules: { ...DEFAULT_RULES, artist: true } }).trackTime, false);
+  assert.equal(migrateSettings({ v: 4, rules: { ...DEFAULT_RULES, artist: true } }).v, SETTINGS_VERSION);
+  const saved = migrateState({
+    settings: { rules: { ...DEFAULT_RULES } }, players: [{ name: 'A', timeline: [], tokens: 2, bonusCards: 0, freeSkips: 1, wrong: [] }],
+    cur: { country: {}, place: {} },
+  });
+  assert.equal(saved.settings.trackTime, false);
+  assert.equal(saved.players[0].time, 0);
+  assert.equal(saved.cur.elapsed, 0);
+  assert.equal(saved.cur.clockOn, false);
 });
