@@ -3,6 +3,7 @@ import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -13,6 +14,8 @@ import { startFireworks } from './fireworks.js';
 const KEY_STATE = 'esc_hitster_state';
 const KEY_SETTINGS = 'esc_hitster_settings';
 const KEY_ERRORS = 'esc_hitster_errors';
+const KEY_HISTORY = 'esc_hitster_history';
+const HISTORY_MAX = 200;
 const START_TOKENS = 2;
 const DEV = new URLSearchParams(location.search).get('dev') === '1';
 
@@ -100,6 +103,7 @@ function readFilter() {
   return {
     mode,
     topN: Math.max(1, parseInt($('#inp-topn').value, 10) || 100),
+    decadeN: Math.max(1, parseInt($('#inp-decade').value, 10) || 15),
     from: parseInt($('#inp-from').value, 10) || setup.minYear,
     to: parseInt($('#inp-to').value, 10) || setup.maxYear,
     toMax: (parseInt($('#inp-to').value, 10) || setup.maxYear) >= setup.maxYear,
@@ -195,6 +199,12 @@ function renderCountryChips() {
   $('#country-sel-info').textContent = setup.countries.size ? `(${setup.countries.size} gewählt)` : '(alle)';
 }
 
+const POOL_HINTS = {
+  topn: 'Rangfolge nach YouTube-Aufrufen. Neuere Lieder sind dadurch im Vorteil.',
+  jahrzehnt: 'Die meistgesehenen Lieder auf YouTube, getrennt für jedes Jahrzehnt. So kommen auch alte Lieder vor.',
+  ikonen: 'Von Hand gewählte Lieder aus allen Jahrzehnten, die man kennt oder die für den ESC stehen.',
+};
+
 function updateCount() {
   const f = readFilter();
   const n = filterPool(DATA.songs, f, DEV).length;
@@ -204,6 +214,9 @@ function updateCount() {
   $('#pool-need').textContent = n < need ? `– mindestens ${need} nötig` : '';
   $('#btn-start').disabled = n < need;
   $('.pool-count').classList.toggle('low', n < need);
+  const hint = POOL_HINTS[f.mode];
+  $('#pool-hint').hidden = !hint;
+  $('#pool-hint').textContent = hint || '';
   const r = readRules();
   $('#convert-box').hidden = !r.convert;
   renderPresets();
@@ -216,6 +229,7 @@ function applySettings(st) {
   const f = st.filter || {};
   if (f.mode) { const r = $(`input[name=pool][value="${f.mode}"]`); if (r && !r.disabled) r.checked = true; }
   if (f.topN) $('#inp-topn').value = f.topN;
+  if (f.decadeN) $('#inp-decade').value = f.decadeN;
   if (f.from) $('#inp-from').value = f.from;
   // "bis" am alten Datenende gespeichert -> mit neuen Daten bis zum neuen Ende
   if (f.to && !f.toMax) $('#inp-to').value = Math.min(f.to, setup.maxYear);
@@ -238,6 +252,10 @@ function initSetup() {
   $('#inp-topn').disabled = !setup.hasPop;
   $('#topn-label').classList.toggle('disabled', !setup.hasPop);
   $('#topn-hint').hidden = setup.hasPop;
+  const decadeRadio = $('input[name=pool][value=jahrzehnt]');
+  decadeRadio.disabled = !setup.hasPop;
+  $('#inp-decade').disabled = !setup.hasPop;
+  $('#decade-label').classList.toggle('disabled', !setup.hasPop);
 
   $('#target-opts').innerHTML = TARGET_CHOICES.map((n) =>
     `<label class="chip-radio"><input type="radio" name="target" value="${n}"><span>${n}</span></label>`).join('');
@@ -283,10 +301,11 @@ function initSetup() {
   });
   $('#target-opts').addEventListener('change', (e) => { $('#inp-target').value = e.target.value; });
   $('#inp-target').addEventListener('input', syncTarget);
-  $('#stats-countries').innerHTML = [...COUNTRY_NAMES.values()].sort((a, b) => a.localeCompare(b, 'de')).map((n) => `<option value="${esc(n)}"></option>`).join('');
+  const statYears = [...new Set(DATA.songs.map((s) => s.jahr))].sort((a, b) => b - a);
+  $('#stats-options').innerHTML = [...[...COUNTRY_NAMES.values()].sort((a, b) => a.localeCompare(b, 'de')), ...statYears].map((n) => `<option value="${esc(n)}"></option>`).join('');
   $('#stats-input').addEventListener('input', renderStats);
-  $('#stats').addEventListener('toggle', () => { if ($('#stats').open) { renderHeatmap(); renderStats(); } });
   $('#inp-topn').addEventListener('focus', () => { if (setup.hasPop) $('input[name=pool][value=topn]').checked = true; updateCount(); });
+  $('#inp-decade').addEventListener('focus', () => { if (setup.hasPop) $('input[name=pool][value=jahrzehnt]').checked = true; updateCount(); });
   $('#country-chips').addEventListener('click', (e) => {
     const b = e.target.closest('.chip'); if (!b) return;
     const iso = b.dataset.iso;
@@ -301,16 +320,20 @@ function initSetup() {
   }));
   $('#btn-start').onclick = startGame;
 
-  // Fortsetzen anbieten
-  const saved = store.get(KEY_STATE);
-  if (saved && !saved.finished && Array.isArray(saved.players) && saved.players.length) {
-    $('#resume-box').hidden = false;
-    const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString('de-DE') : '';
-    $('#resume-info').textContent = `${saved.players.map((p) => `${p.name} (${p.timeline.length})`).join(', ')} · gespeichert ${when}`;
-    $('#btn-resume').onclick = () => resumeGame(migrateState(saved));
-    $('#btn-discard').onclick = () => { store.del(KEY_STATE); $('#resume-box').hidden = true; };
-  }
+  offerResume();
   updateCount();
+}
+
+/** Gespeichertes Spiel auf der Startseite zum Fortsetzen anbieten. */
+function offerResume() {
+  const saved = store.get(KEY_STATE);
+  const ok = saved && !saved.finished && Array.isArray(saved.players) && saved.players.length;
+  $('#resume-box').hidden = !ok;
+  if (!ok) return;
+  const when = saved.savedAt ? new Date(saved.savedAt).toLocaleString('de-DE') : '';
+  $('#resume-info').textContent = `${saved.players.map((p) => `${p.name} (${p.timeline.length})`).join(', ')} · gespeichert ${when}`;
+  $('#btn-resume').onclick = () => resumeGame(migrateState(saved));
+  $('#btn-discard').onclick = () => { store.del(KEY_STATE); $('#resume-box').hidden = true; };
 }
 
 /* ------------------------------------------------------------------ Spielzustand */
@@ -616,6 +639,7 @@ function endGame() {
     r.rank = prev && prev.sc === r.sc && prev.tokens === r.tokens ? prev.rank : n + 1;
   });
   const top = ranking[0];
+  logGame(ranking);
   const winners = ranking.filter((r) => r.rank === 1);
   const rounds = `${state.round} ${state.round === 1 ? 'Runde' : 'Runden'}`;
   const cardsText = (r) => `${r.timeline.length} ${r.timeline.length === 1 ? 'Karte' : 'Karten'}${r.bonusCards ? ` + ${r.bonusCards} Bonuskarte${r.bonusCards > 1 ? 'n' : ''}` : ''}`;
@@ -685,9 +709,17 @@ function showEndCards(i) {
 }
 
 /* ------------------------------------------------------------------ Rendern */
+let screen = 'setup';
+let backTo = 'setup'; // Bildschirm, zu dem der Reiter „Spiel“ von der Statistik zurückführt
+
 function showScreen(name) {
-  for (const s of ['setup', 'game', 'end', 'music']) $(`#screen-${s}`).hidden = s !== name;
+  screen = name;
+  for (const s of ['setup', 'game', 'end', 'music', 'stats']) $(`#screen-${s}`).hidden = s !== name;
   $('#btn-menu').hidden = name !== 'game';
+  $('#tab-play').classList.toggle('on', name !== 'stats');
+  $('#tab-stats').classList.toggle('on', name === 'stats');
+  if (name !== 'end') $('#end-audio').pause();
+  if (name !== 'stats') heatTipHide();
   document.body.classList.toggle('on-setup', name === 'setup');
   window.scrollTo(0, 0);
 }
@@ -1546,8 +1578,97 @@ function initAudio() {
   });
 }
 
+/* ------------------------------------------------------------------ Navigation */
+/** Laufendes Spiel anhalten, der Stand bleibt gespeichert. */
+function pauseGame() {
+  clockStop();
+  save();
+  hidePlayer();
+  YTP.stop();
+}
+
+/** Klick aufs Logo: zurück zur Startseite, ein laufendes Spiel lässt sich dort fortsetzen. */
+function goHome() {
+  if (screen === 'setup') return;
+  if (screen === 'end' || (state && state.finished)) { state = null; location.reload(); return; }
+  if (music) closeMusic();
+  if (state) { pauseGame(); state = null; }
+  testStop();
+  offerResume();
+  updateCount();
+  showScreen('setup');
+}
+
+function openStats() {
+  if (screen === 'stats' || !DATA.songs.length) return;
+  if (screen === 'game') pauseGame();
+  if (music) closeMusic(); // setzt screen auf setup
+  testStop();
+  backTo = screen;
+  renderOverview();
+  renderHeatmap();
+  renderStats();
+  renderHistory();
+  showScreen('stats');
+}
+
+function closeStats() {
+  if (screen !== 'stats') return;
+  if (backTo === 'game' && state) resumeGame(state);
+  else showScreen(backTo);
+}
+
+/* ------------------------------------------------------------------ Spielverlauf */
+function logGame(ranking) {
+  const preset = matchingPreset(state.settings.rules);
+  const entry = historyEntry(ranking, {
+    when: new Date().toISOString(),
+    modeName: preset ? preset.name : 'Eigene Regeln',
+    poolMode: state.settings.filter.mode,
+    target: state.settings.target,
+  });
+  store.set(KEY_HISTORY, [entry, ...store.get(KEY_HISTORY, [])].slice(0, HISTORY_MAX));
+}
+
+function renderHistory() {
+  const list = store.get(KEY_HISTORY, []);
+  $('#btn-clear-history').hidden = !list.length;
+  $('#stats-history').innerHTML = list.length ? list.map((g) => {
+    const winners = g.spieler.filter((p) => p.platz === 1).map((p) => p.name).join(' & ');
+    const players = g.spieler.map((p) => `${esc(p.name)}: ${p.karten} ${p.karten === 1 ? 'Karte' : 'Karten'}${p.zeit ? `, ${fmtDuration(p.zeit)}` : ''}`).join(' · ');
+    return `<div class="history-item">
+      <div>${g.spieler.length > 1 ? `👑 <b>${esc(winners)}</b>` : `<b>${esc(winners)}</b> (solo)`}</div>
+      <div class="small">${players}</div>
+      <div class="history-sub">${esc(new Date(g.zeit).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }))} · ${esc(g.modus)} · Pool: ${esc(g.pool)} · Ziel: ${esc(g.ziel)} Karten</div>
+    </div>`;
+  }).join('') : '<div class="muted small">Noch keine beendeten Spiele auf diesem Gerät.</div>';
+}
+
 /* ------------------------------------------------------------------ Statistik */
 let heat = null; // wird erst beim ersten Öffnen der Statistik gebaut
+let overviewDone = false;
+
+function renderOverview() {
+  if (overviewDone) return;
+  overviewDone = true;
+  const o = overviewStats(DATA.songs);
+  const tiles = [[o.countries, 'Länder haben je teilgenommen'], [o.contests, 'Wettbewerbe seit 1956'], [o.entries, 'Beiträge'], [o.nulPoints, 'Mal „Nul points“']];
+  $('#stats-tiles').innerHTML = tiles.map(([n, l]) => `<div class="tile"><b>${n}</b><span>${esc(l)}</span></div>`).join('');
+  const max = o.topWinners[0].wins;
+  $('#stats-top').innerHTML = o.topWinners.map((k) =>
+    `<div class="win-bar" title="${esc(k.years.join(', '))}">${flagHTML(k.iso)}<span class="win-name">${esc(k.name)}</span><span class="win-track"><i style="width:${(k.wins / max) * 100}%"></i></span><span class="win-count">${k.wins}</span></div>`).join('');
+  $('#stats-never-count').textContent = `(${o.neverWon.length} Länder)`;
+  $('#stats-never').innerHTML = o.neverWon.map((k) => `<span class="never-item" title="${k.entries} Teilnahmen">${flagHTML(k.iso)}${esc(k.name)}</span>`).join('');
+  $('#stats-winners').innerHTML = o.recentWinners.map((s) =>
+    `<div class="winner">
+      <img class="thumb" src="https://i.ytimg.com/vi/${esc(s.youtube_id)}/mqdefault.jpg" alt="" loading="lazy">
+      <div class="winner-info">
+        <div class="winner-head">${flagHTML(s.land_iso)}<span>${s.jahr} · ${esc(s.land)}</span></div>
+        <div class="winner-title">${esc(s.titel)}</div>
+        <div class="muted">${esc(s.interpret)}</div>
+      </div>
+    </div>`).join('');
+}
 
 function renderHeatmap() {
   if (heat) return;
@@ -1559,18 +1680,65 @@ function renderHeatmap() {
     return c ? `<i class="hm ${cellClass(c)}" data-y="${y}"></i>` : '<i class="hm"></i>';
   }).join('')}</div>`).join('');
   $('#heatmap').innerHTML = head + rows;
-  const show = (e) => {
-    const cell = e.target.closest('[data-y]');
+  const box = $('#heatmap');
+  const cellOf = (e) => (e.target.closest ? e.target.closest('[data-y]') : null);
+  // Tippen zeigt das Feld nur unter der Grafik, die Bubble gibt es nur mit der Maus
+  box.addEventListener('click', (e) => { const c = cellOf(e); if (c) showHeatCell(c); });
+  box.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    heatTipHide();
+    const cell = cellOf(e);
     if (!cell) return;
-    const k = heat.countries.find((x) => x.iso === cell.parentElement.dataset.iso);
-    const y = +cell.dataset.y;
-    $$('#heatmap .hm.on').forEach((x) => x.classList.remove('on'));
-    cell.classList.add('on');
-    $('#heat-detail').innerHTML = k.cells.get(y).songs.map((s) =>
-      `<div><b>${esc(k.name)} ${y}</b>: ${esc(s.interpret)} – ${esc(s.titel)} · ${esc(placementText(s))}</div>`).join('');
-  };
-  $('#heatmap').addEventListener('click', show);
-  $('#heatmap').addEventListener('mouseover', show);
+    tipX = e.clientX; tipY = e.clientY;
+    tipTimer = setTimeout(() => {
+      $('#heat-tip').innerHTML = showHeatCell(cell);
+      $('#heat-tip').hidden = false;
+      heatTipMove();
+    }, HEAT_TIP_DELAY);
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    tipX = e.clientX; tipY = e.clientY;
+    heatTipMove();
+  });
+  box.addEventListener('pointerleave', heatTipHide);
+  box.addEventListener('scroll', heatTipHide);
+  window.addEventListener('scroll', heatTipHide, { passive: true });
+  window.addEventListener('blur', heatTipHide);
+  document.addEventListener('visibilitychange', heatTipHide);
+}
+
+const HEAT_TIP_DELAY = 120;
+let tipTimer = null;
+let tipX = 0;
+let tipY = 0;
+
+/** Markiert das Feld, schreibt die Infos unter die Grafik und gibt sie für die Bubble zurück. */
+function showHeatCell(cell) {
+  const k = heat.countries.find((x) => x.iso === cell.parentElement.dataset.iso);
+  const y = +cell.dataset.y;
+  $$('#heatmap .hm.on').forEach((x) => x.classList.remove('on'));
+  cell.classList.add('on');
+  const html = k.cells.get(y).songs.map((s) =>
+    `<div><b>${esc(k.name)} ${y}</b>: ${esc(s.interpret)} – ${esc(s.titel)} · ${esc(placementText(s))}</div>`).join('');
+  $('#heat-detail').innerHTML = html;
+  return html;
+}
+
+function heatTipHide() {
+  clearTimeout(tipTimer);
+  $('#heat-tip').hidden = true;
+}
+
+/** Bubble neben dem Mauszeiger, am Fensterrand auf die andere Seite. */
+function heatTipMove() {
+  const tip = $('#heat-tip');
+  if (tip.hidden) return;
+  const gap = 14;
+  const x = tipX + gap + tip.offsetWidth > innerWidth ? tipX - gap - tip.offsetWidth : tipX + gap;
+  const y = tipY + gap + tip.offsetHeight > innerHeight ? tipY - gap - tip.offsetHeight : tipY + gap;
+  tip.style.left = `${Math.max(4, x)}px`;
+  tip.style.top = `${Math.max(4, y)}px`;
 }
 
 /** Das gesuchte Land steht hervorgehoben ganz oben, sonst alphabetisch. */
@@ -1591,7 +1759,9 @@ function renderStats() {
   const iso = text.trim() ? matchCountry(text, COUNTRY_NAMES) : null;
   highlightHeat(iso);
   if (!text.trim()) { box.innerHTML = ''; return; }
-  if (!iso) { box.innerHTML = '<div class="muted small">Land aus der Liste wählen.</div>'; return; }
+  const year = /^\d{4}$/.test(text.trim()) ? +text.trim() : null;
+  if (year !== null) { box.innerHTML = yearHTML(year); return; }
+  if (!iso) { box.innerHTML = '<div class="muted small">Land oder Jahr aus der Liste wählen.</div>'; return; }
   const st = countryStats(DATA.songs, iso);
   const notes = [
     st.notFinal ? `Nicht im Finale: ${st.notFinal}` : '',
@@ -1603,7 +1773,33 @@ function renderStats() {
     ${st.top.length ? `<ol class="stat-top">${st.top.map((a) => `<li>Platz ${a.place} <b>${a.count}×</b></li>`).join('')}</ol>` : '<div class="muted small">Noch nie im Finale platziert.</div>'}
     ${notes ? `<div class="muted small">${notes}</div>` : ''}
     ${st.all.length ? `<details class="sub-details"><summary>Alle Platzierungen</summary>
-      <div class="stat-all">${st.all.map((a) => `<div class="${a.count ? '' : 'muted'}">Platz ${a.place}: <b>${a.count}×</b></div>`).join('')}</div></details>` : ''}`;
+      <div class="stat-all">${st.all.map((a) => `<div class="${a.count ? '' : 'muted'}">Platz ${a.place}: <b>${a.count}×</b></div>`).join('')}</div></details>` : ''}
+    <h3>Alle Beiträge</h3>
+    ${entriesOfCountry(DATA.songs, iso).map((s) => entryHTML(s, `<span class="entry-year">${s.jahr}</span>`)).join('')}`;
+}
+
+/** Eine Zeile der Teilnehmerliste: links Flagge oder Jahr, rechts die Platzierung. */
+function entryHTML(s, lead) {
+  const facts = [s.sprache, s.punkte !== null ? `${s.punkte} Punkte` : ''].filter(Boolean).join(' · ');
+  return `<div class="entry ${s.sieger ? 'win' : ''}">
+    ${lead}
+    <div><div><b>${esc(s.titel)}</b> · ${esc(s.interpret)}</div><div class="entry-sub">${lead.includes('flag') ? `${esc(s.land)}${facts ? ' · ' : ''}` : ''}${esc(facts)}</div></div>
+    <div class="entry-place">${s.sieger ? '🏆 ' : ''}${esc(placementText(s))}</div>
+  </div>`;
+}
+
+function yearHTML(year) {
+  const list = entriesOfYear(DATA.songs, year);
+  if (!list.length) return `<div class="muted small">${year} gibt es nicht im Datensatz (1956 bis ${Math.max(...DATA.songs.map((s) => s.jahr))}).</div>`;
+  const winners = list.filter((s) => s.sieger);
+  const place = list.find((s) => s.austragungsort);
+  const finale = list.filter((s) => s.runde_ende === 'Finale' || s.sieger);
+  const rest = list.filter((s) => !finale.includes(s));
+  const row = (s) => entryHTML(s, flagHTML(s.land_iso));
+  return `<div class="stat-head"><b>ESC ${year}</b></div>
+    <div class="entry-sum muted small">${list.length} Beiträge${place ? ` · ${esc(place.austragungsort)}` : ''}${winners.length ? ` · Sieger: ${winners.map((s) => esc(s.land)).join(', ')}` : ' · abgesagt'}</div>
+    ${isCancelled(list[0]) ? list.map(row).join('') : `<div class="entries-head">Finale</div>${finale.map(row).join('')}
+    ${rest.length ? `<div class="entries-head">Nicht im Finale</div>${rest.map(row).join('')}` : ''}`}`;
 }
 
 /* ------------------------------------------------------------------ Info-Dialog */
@@ -1640,6 +1836,14 @@ async function main() {
     }
   });
   $('#btn-info').onclick = openInfo;
+  $('#btn-home').onclick = goHome;
+  $('#tab-stats').onclick = openStats;
+  $('#tab-play').onclick = closeStats;
+  $('#btn-clear-history').onclick = () => {
+    if (!confirm('Alle vergangenen Spiele auf diesem Gerät löschen?')) return;
+    store.del(KEY_HISTORY);
+    renderHistory();
+  };
   $('#btn-clear-errors').onclick = () => { store.del(KEY_ERRORS); renderErrors(); };
   $('#btn-menu').onclick = () => $('#dlg-menu').showModal();
   $('#btn-end-game').onclick = () => { $('#dlg-menu').close(); endGame(); };
@@ -1707,6 +1911,10 @@ window.ESC = {
   closeMusic: () => closeMusic(),
   fit: () => fitOverlap($('#timeline')),
   end: () => endGame(),
+  openStats: () => openStats(),
+  closeStats: () => closeStats(),
+  goHome: () => goHome(),
+  get screen() { return screen; },
   matchText,
   render: () => render(),
   errors: readErrors,

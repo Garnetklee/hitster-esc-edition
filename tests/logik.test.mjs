@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs';
 import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue, searchSongs,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry,
 } from '../app/js/data.js';
 import {
   DEFAULT_RULES, PRESETS, presetById, presetMatches, matchingPreset, migrateSettings, migrateState, SETTINGS_VERSION,
 } from '../app/js/settings.js';
+import { IKONEN } from '../app/js/ikonen.js';
 
 const raw = JSON.parse(readFileSync(new URL('../app/data/esc_songs.json', import.meta.url), 'utf8'));
 // Felder wie in data.js/normalize, das nicht exportiert ist
@@ -216,4 +218,64 @@ test('Lied suchen: Titel, Land mit Jahr, ohne Akzente, höchstens max Treffer', 
   assert.equal(searchSongs(songs, 'Deutschland').length, 8);
   assert.deepEqual(searchSongs(songs, '   '), []);
   assert.deepEqual(searchSongs(songs, 'gibtesnichtxyz'), []);
+});
+
+test('ESC-Ikonen: jede Id gibt es, alle Jahrzehnte sind vertreten, alle haben ein Video', () => {
+  for (const id of IKONEN) assert.ok(byId(id), id);
+  const pool = filterPool(songs, { ...FILTER, mode: 'ikonen' });
+  assert.equal(pool.length, IKONEN.size);
+  assert.deepEqual([...new Set(pool.map((s) => Math.floor(s.jahr / 10) * 10))].sort(), [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]);
+});
+
+test('Bekannteste je Jahrzehnt: höchstens N pro Jahrzehnt, jeweils die mit dem besten Rang', () => {
+  const pool = filterPool(songs, { ...FILTER, mode: 'jahrzehnt', decadeN: 5 });
+  const perDecade = Map.groupBy(pool, (s) => Math.floor(s.jahr / 10));
+  assert.equal(perDecade.size, 8);
+  for (const list of perDecade.values()) assert.equal(list.length, 5);
+  assert.ok(pool.some((s) => s.id === '1974-SE')); // Waterloo
+  const worst70s = Math.max(...perDecade.get(197).map((s) => s.pop_rang));
+  const others = filterPool(songs, FILTER).filter((s) => Math.floor(s.jahr / 10) === 197 && s.pop_rang !== null && !perDecade.get(197).includes(s));
+  assert.ok(others.every((s) => s.pop_rang > worst70s));
+});
+
+test('Bekannteste je Jahrzehnt: Zeitraum wird vor der Auswahl angewendet', () => {
+  const pool = filterPool(songs, { ...FILTER, from: 1974, to: 1975, mode: 'jahrzehnt', decadeN: 3 });
+  assert.equal(pool.length, 3);
+  assert.ok(pool.every((s) => s.jahr === 1974 || s.jahr === 1975));
+});
+
+test('Statistikseite: Länder, Siege und Länder ohne Sieg aus den echten Daten', () => {
+  const o = overviewStats(songs);
+  const winnerIso = new Set(songs.filter((s) => s.sieger).map((s) => s.land_iso));
+  assert.equal(o.countries, new Set(songs.map((s) => s.land_iso)).size);
+  assert.equal(o.contests, 70); // 1956 bis 2026 ohne 2020
+  assert.deepEqual(o.topWinners.slice(0, 2).map((k) => k.iso).sort(), ['IE', 'SE']);
+  assert.equal(o.topWinners[0].wins, 7);
+  assert.equal(o.topWinners.length, 6); // vier Länder teilen sich mit 5 Siegen Platz 3
+  const never = o.neverWon.map((k) => k.iso);
+  assert.ok(never.includes('MT') && never.includes('CY'));
+  assert.ok(!never.includes('DE') && !never.includes('YU'));
+  assert.equal(o.neverWon.length + winnerIso.size, o.countries);
+  assert.deepEqual(o.recentWinners.slice(0, 2).map((s) => s.id), ['2026-BG', '2025-AT']);
+});
+
+test('Suche nach Jahr: Sieger zuerst, Finale vor Halbfinale; nach Land: neueste zuerst', () => {
+  const y = entriesOfYear(songs, 2010);
+  assert.equal(y[0].id, '2010-DE');
+  assert.equal(y.length, songs.filter((s) => s.jahr === 2010).length);
+  const firstHf = y.findIndex((s) => s.runde_ende !== 'Finale');
+  assert.ok(firstHf > 0 && y.slice(firstHf).every((s) => s.runde_ende !== 'Finale'));
+  assert.equal(entriesOfYear(songs, 1969).slice(0, 4).filter((s) => s.sieger).length, 4);
+  const c = entriesOfCountry(songs, 'DE');
+  assert.ok(c.every((s, i) => !i || c[i - 1].jahr >= s.jahr));
+  assert.equal(c.length, songs.filter((s) => s.land_iso === 'DE').length);
+});
+
+test('Spielverlauf: Eintrag übernimmt Rangliste, Modus und Pool-Namen', () => {
+  const e = historyEntry(
+    [{ name: 'A', rank: 1, sc: 10, tokens: 2, time: 5000 }, { name: 'B', rank: 2, sc: 7, tokens: 0.5 }],
+    { when: '2026-11-04T12:00:00.000Z', modeName: 'Klassisch', poolMode: 'ikonen', target: 10 },
+  );
+  assert.equal(e.pool, 'ESC-Ikonen');
+  assert.deepEqual(e.spieler[1], { name: 'B', platz: 2, karten: 7, tokens: 0.5, zeit: 0 });
 });

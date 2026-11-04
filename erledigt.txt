@@ -1,4 +1,37 @@
 ==================== Erledigt ====================
+✅ erledigt (2026-11-04 18:11) – ein klick oben links auf Hitster ESC Edition soll wieder zurück zur Startseite führen.
+   → Das Logo führt zur Startseite. Ein laufendes Spiel bleibt gespeichert und lässt sich dort fortsetzen. Auf der Startseite selbst bleibt das Logo oben wie bisher ausgeblendet.
+
+✅ erledigt (2026-11-04 18:11) – welche Möglichkeiten haben wir um vergangene Spiele als verlauf aufzuschreiben?
+   → Entscheidung: nur lokal. Beendete Spiele landen automatisch im Browser und stehen auf der Statistikseite unter „Vergangene Spiele“ (Sieger, Karten, Modus, Pool). Abgebrochene Spiele zählen nicht, gespeichert werden die letzten 200.
+
+✅ erledigt (2026-11-04 18:11) – Lieder npool top 100 bekannteste: welches ranking wird verwendet? kleiner hinweis in der App.
+Was gibt es noch in der Richtung? Ich möchte eine Auswahl mit Lieder, die man wahrscheinlicher kennt und/oder iconic sind für den esc
+   → Das Ranking nutzt nur YouTube-Aufrufe, beim Pool steht jetzt ein Hinweis. Neu: „Top-N je Jahrzehnt“ und „ESC-Ikonen“ (103 von Hand gewählte Lieder in app/js/ikonen.js). Selbst prüfen: die Ikonen-Liste durchsehen, streichen oder ergänzen.
+
+✅ erledigt (2026-11-04 18:11) – Bei der Heatmap beim hovern Infos nicht nur unter der Liste anzeigen sonder auch als text bubble neben dem mauszeiger. Prüfen dass der text zuverlässig auch verschwindet, wenn man nicht mehr darüber hovert. Ganz kurzer delay beim anzeigen, damit nicht zu viel passiert, wenn man die maus über die ganze grafik bewegt.
+   → Bubble neben dem Mauszeiger nach 120 ms. Sie verschwindet beim Verlassen, Scrollen, Fensterwechsel und Seitenwechsel, im Browser mit echter Maus geprüft. Am Handy bleibt es bei der Anzeige unter der Grafik.
+
+✅ erledigt (2026-11-04 18:11) – was bedeutet unter der heatmap: "Sieg
+Finale: hinten
+vorn
+Halbfinal-Aus
+ohne Wertung
+2020 abgesagt" Es scheint so als wäre es eine legende, aber es fehlen farben oder Erklärungen.
+   → Es ist eine Legende, die Farben fehlten wegen eines Fehlers (Kästchen ohne Breite). Behoben, die Texte sind jetzt klarer.
+
+✅ erledigt (2026-11-04 18:11) – Statistikseite: Ein paar interessante Daten als Kacheln oder andere hübsche Design Elemente aufführen (als ganze eigene Seite darstellen. Oben irgendwo umschalten zwischen Spiel und Statistik:
+Wie viele verschiedene Länder haben all time teilgenommen. 
+
+Wer hat noch nie gewonnen? 
+
+Top 5 der Länder mit den meisten Siegen.
+
+Sieger der letzten jahre mit kleinen Bildchen darstellen falls möglich.
+
+nicht nur suche nach Ländern, sondern auch nach Jahren. Soll eine schöne Darstellung aller Teilnehmer inklusive der wichtigsten Infos darstellen.
+   → Eigene Seite mit Umschalter „Spiel / Statistik“ oben: Kacheln, meiste Siege (Gleichstand: 6 Länder), 24 Länder ohne Sieg, die letzten 8 Sieger mit YouTube-Vorschaubild, Suche nach Land oder Jahr mit allen Teilnehmern, Heatmap. Im laufenden Spiel stoppt das Lied beim Wechsel und beginnt beim Zurückkehren neu. Selbst testen: Handy.
+
 
 ✅ erledigt (2026-11-03 23:32) – Bei den unsicheren Fällen möchte ich gerne, dass du den Text vor allem nach dem Namen des Interpreten durchsuchst. Der sollte auf jeden Fall weggeschnitten werden. Auch nach dem Song titel suchen, aber da kann es sein, dass er auch im Song normal gesungen wird. Es geht mir bei denen nicht darum die Moderation komplett rauszuschneiden, sondern mehr darum spoiler zu vermeiden für das Spiel
    → Lieder bis 1979 nutzen wieder den Stand vor dieser Runde plus Whisper: 94 Lieder gekürzt (60 Moderation, 31 Interpret, 3 Titel), 290 ohne Treffer. Bericht in data/raw/intro_whisper_bericht.txt, frühere Auswahl in data/intro_musik_archiv.csv. Nicht angehört, selbst testen mit „Lied testen“.

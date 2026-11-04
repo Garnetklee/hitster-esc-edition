@@ -29,10 +29,14 @@
   </div>
 
   <header class="topbar">
-    <div class="brand">
+    <button type="button" class="brand" id="btn-home" aria-label="Zur Startseite">
       <svg class="brand-heart" viewBox="0 0 512 512" aria-hidden="true"><use href="#heart"/></svg>
       <span>Hitster <b>ESC</b> Edition</span>
-    </div>
+    </button>
+    <nav class="view-tabs" aria-label="Ansicht">
+      <button type="button" id="tab-play" class="on">Spiel</button>
+      <button type="button" id="tab-stats">Statistik</button>
+    </nav>
     <div class="topbar-actions">
       <button class="icon-btn" id="btn-menu" hidden aria-label="Spielmenü">☰</button>
       <button class="icon-btn" id="btn-info" aria-label="Info und Einstellungen">i</button>
@@ -96,7 +100,10 @@
             <label class="chip-radio"><input type="radio" name="pool" value="sieger"><span>Nur Sieger</span></label>
             <label class="chip-radio"><input type="radio" name="pool" value="nul"><span>„Nul points“</span></label>
             <label class="chip-radio" id="topn-label"><input type="radio" name="pool" value="topn"><span>Top-<input type="number" id="inp-topn" value="100" min="5" max="2000" step="5" aria-label="N" enterkeyhint="done"> bekannteste</span></label>
+            <label class="chip-radio" id="decade-label"><input type="radio" name="pool" value="jahrzehnt"><span>Top-<input type="number" id="inp-decade" value="15" min="1" max="200" step="1" aria-label="Lieder je Jahrzehnt" enterkeyhint="done"> je Jahrzehnt</span></label>
+            <label class="chip-radio"><input type="radio" name="pool" value="ikonen"><span>ESC-Ikonen</span></label>
           </div>
+          <div class="muted small pool-hint" id="pool-hint" hidden></div>
           <div class="muted small" id="topn-hint" hidden>Noch keine Popularitätsdaten (pop_rang) vorhanden.</div>
         </div>
 
@@ -193,26 +200,6 @@
           </div>
         </details>
 
-        <details class="panel advanced" id="stats">
-          <summary>Statistik</summary>
-          <label class="field stats-search">
-            <span>Land suchen</span>
-            <input type="text" id="stats-input" list="stats-countries" autocomplete="off" enterkeyhint="done" placeholder="z. B. Deutschland">
-          </label>
-          <datalist id="stats-countries"></datalist>
-          <div id="stats-result" class="stats-result"></div>
-          <h3>Platzierungen aller Länder und Jahre</h3>
-          <div id="heatmap" class="heatmap"></div>
-          <div id="heat-detail" class="heat-detail muted small">Tippe auf ein Feld für Lied und Platzierung.</div>
-          <div class="heat-legend small">
-            <span><i class="hm win"></i>Sieg</span>
-            <span class="heat-scale">Finale: hinten <i class="hm h0"></i><i class="hm h1"></i><i class="hm h2"></i><i class="hm h3"></i><i class="hm h4"></i> vorn</span>
-            <span><i class="hm hf"></i>Halbfinal-Aus</span>
-            <span><i class="hm none"></i>ohne Wertung</span>
-            <span><i class="hm cancelled"></i>2020 abgesagt</span>
-          </div>
-        </details>
-
         <div class="center"><button type="button" class="link-btn" id="btn-music">🎧 Nur Musik hören</button></div>
 
         <div class="start-bar">
@@ -263,6 +250,52 @@
       </div>
     </section>
 
+    <!-- ================= STATISTIK ================= -->
+    <section id="screen-stats" class="screen" hidden>
+      <h2 class="stats-title">Statistik</h2>
+      <div id="stats-tiles" class="tiles"></div>
+      <div class="stats-columns">
+        <div class="panel">
+          <h3>Meiste Siege</h3>
+          <div id="stats-top" class="win-bars"></div>
+        </div>
+        <div class="panel">
+          <h3>Noch nie gewonnen <span class="muted small" id="stats-never-count"></span></h3>
+          <div id="stats-never" class="never-list"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Sieger der letzten Jahre</h3>
+        <div id="stats-winners" class="winner-grid"></div>
+      </div>
+      <div class="panel">
+        <h3>Teilnehmer suchen</h3>
+        <label class="field stats-search">
+          <span>Land oder Jahr</span>
+          <input type="text" id="stats-input" list="stats-options" autocomplete="off" enterkeyhint="done" placeholder="z. B. Deutschland oder 1974">
+        </label>
+        <datalist id="stats-options"></datalist>
+        <div id="stats-result" class="stats-result"></div>
+      </div>
+      <div class="panel">
+        <h3>Platzierungen aller Länder und Jahre</h3>
+        <div id="heatmap" class="heatmap"></div>
+        <div id="heat-detail" class="heat-detail muted small">Tippe auf ein Feld für Lied und Platzierung.</div>
+        <div class="heat-legend small">
+          <span><i class="hm win"></i>Sieg</span>
+          <span class="heat-scale">Finale: schlechter Platz <i class="hm h0"></i><i class="hm h1"></i><i class="hm h2"></i><i class="hm h3"></i><i class="hm h4"></i> guter Platz</span>
+          <span><i class="hm hf"></i>im Halbfinale ausgeschieden</span>
+          <span><i class="hm none"></i>ohne Wertung (1956, disqualifiziert)</span>
+          <span><i class="hm cancelled"></i>2020 abgesagt</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Vergangene Spiele</h3>
+        <div id="stats-history" class="history-list"></div>
+        <button type="button" class="link-btn" id="btn-clear-history" hidden>Verlauf löschen</button>
+      </div>
+    </section>
+
     <!-- ================= ENDE ================= -->
     <section id="screen-end" class="screen" hidden>
       <canvas id="fireworks" hidden aria-hidden="true"></canvas>
@@ -288,6 +321,8 @@
       </div>
     </section>
   </main>
+
+  <div id="heat-tip" class="heat-tip" hidden></div>
 
   <!-- Dialoge -->
   <dialog id="dlg-info">

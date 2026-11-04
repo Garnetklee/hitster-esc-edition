@@ -1,5 +1,7 @@
 // Datenladen, Pool-Filter und reine Spiellogik (ohne DOM)
 
+import { IKONEN } from './ikonen.js';
+
 export const QUICK_COUNTRIES = {
   dach: ['DE', 'AT', 'CH'],
   skandinavien: ['SE', 'NO', 'DK', 'FI', 'IS'],
@@ -58,7 +60,7 @@ export const hasVideo = (s) => !!s.youtube_id && s.embed_ok !== false;
 /** Filtert die Lieder nach den Setup-Einstellungen. dev=true ignoriert die YouTube-Pflicht. */
 export function filterPool(songs, f, dev = false) {
   const countries = f.countries && f.countries.length ? new Set(f.countries) : null;
-  return songs.filter((s) => {
+  const base = songs.filter((s) => {
     if (!dev && !hasVideo(s)) return false;
     if (f.from && s.jahr < f.from) return false;
     if (f.to && s.jahr > f.to) return false;
@@ -70,8 +72,21 @@ export function filterPool(songs, f, dev = false) {
       case 'sieger': return s.sieger;
       case 'nul': return s.punkte === 0;
       case 'topn': return s.pop_rang !== null && s.pop_rang <= (f.topN || 100);
+      case 'jahrzehnt': return s.pop_rang !== null;
+      case 'ikonen': return IKONEN.has(s.id);
       default: return true;
     }
+  });
+  return f.mode === 'jahrzehnt' ? topPerDecade(base, f.decadeN || 15) : base;
+}
+
+/** Die n meistgesehenen Lieder je Jahrzehnt, damit alte Lieder nicht gegen die neuen untergehen. */
+export function topPerDecade(songs, n) {
+  const seen = new Map();
+  return songs.slice().sort((a, b) => a.pop_rang - b.pop_rang).filter((s) => {
+    const d = Math.floor(s.jahr / 10);
+    seen.set(d, (seen.get(d) || 0) + 1);
+    return seen.get(d) <= n;
   });
 }
 
@@ -328,4 +343,57 @@ export function searchSongs(songs, query, max = 8) {
     })
     .sort((a, b) => a.jahr - b.jahr)
     .slice(0, max);
+}
+
+/** Kennzahlen für die Statistikseite. Bei „meiste Siege“ bleiben Gleichstände an der Grenze dabei. */
+export function overviewStats(songs, topN = 5, recent = 8) {
+  const countries = new Map();
+  for (const s of songs) {
+    if (!countries.has(s.land_iso)) countries.set(s.land_iso, { iso: s.land_iso, name: s.land, entries: 0, wins: 0, years: [] });
+    const k = countries.get(s.land_iso);
+    k.entries++;
+    if (s.sieger) { k.wins++; k.years.push(s.jahr); }
+  }
+  const all = [...countries.values()];
+  const byName = (a, b) => a.name.localeCompare(b.name, 'de');
+  const winners = all.filter((k) => k.wins > 0).sort((a, b) => b.wins - a.wins || byName(a, b));
+  const cut = winners.length > topN ? winners[topN - 1].wins : 0;
+  return {
+    countries: all.length,
+    entries: songs.length,
+    contests: new Set(songs.filter((s) => !isCancelled(s)).map((s) => s.jahr)).size,
+    nulPoints: songs.filter((s) => s.punkte === 0).length,
+    topWinners: winners.filter((k) => k.wins >= cut),
+    neverWon: all.filter((k) => k.wins === 0).sort(byName),
+    recentWinners: songs.filter((s) => s.sieger).sort((a, b) => b.jahr - a.jahr).slice(0, recent),
+  };
+}
+
+/** Alle Beiträge eines Jahres: Sieger, Finale nach Platz, dann die Halbfinals, zuletzt alles ohne Platz. */
+export function entriesOfYear(songs, year) {
+  const stage = (s) => (s.sieger ? 0 : s.platz === null ? 3 : s.runde_ende === 'Finale' ? 1 : 2);
+  return songs.filter((s) => s.jahr === year).sort((a, b) =>
+    stage(a) - stage(b)
+    || (stage(a) === 2 ? String(a.runde_ende).localeCompare(String(b.runde_ende)) : 0)
+    || (a.platz ?? 0) - (b.platz ?? 0)
+    || a.land.localeCompare(b.land, 'de'));
+}
+
+/** Alle Beiträge eines Landes, neueste zuerst. */
+export const entriesOfCountry = (songs, iso) => songs.filter((s) => s.land_iso === iso).sort((a, b) => b.jahr - a.jahr);
+
+export const POOL_LABELS = {
+  alle: 'Alle', finale: 'Nur Finale', top10: 'Top 10', top3: 'Top 3', sieger: 'Nur Sieger', nul: '„Nul points“',
+  topn: 'Top-N bekannteste', jahrzehnt: 'Bekannteste je Jahrzehnt', ikonen: 'ESC-Ikonen',
+};
+
+/** Eintrag für den Spielverlauf aus der fertigen Rangliste. */
+export function historyEntry(ranking, { when, modeName, poolMode, target }) {
+  return {
+    zeit: when,
+    modus: modeName,
+    pool: POOL_LABELS[poolMode] || poolMode,
+    ziel: target,
+    spieler: ranking.map((r) => ({ name: r.name, platz: r.rank, karten: r.sc, tokens: r.tokens, zeit: r.time || 0 })),
+  };
 }

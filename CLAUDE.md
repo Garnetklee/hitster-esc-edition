@@ -47,6 +47,8 @@ python -m venv .venv
 - Ablauf eines Zugs: `startTurn` → `draw` → Hören und Lücke wählen → `tryReveal`/`reveal` → `nextTurn`, am Ende `endGame`.
 - `app/js/settings.js` definiert die Regeln (`DEFAULT_RULES`), die fertigen Modi (`PRESETS`) und die Migrationen. Spielmodi sind nur Kombinationen dieser Regeln.
 - `app/js/data.js` lädt und normalisiert die Lieder (`loadSongs`, Fallback auf `data/sample.json`) und enthält die reine Logik: Pool-Filter, Token-Berechnung, Text-Abgleich, Statistik.
+- Die Statistikseite (`screen-stats`, Umschalter in der Kopfzeile) liegt in `app.js`, ihre Auswertungen in `data.js`. Der Spielverlauf steht getrennt vom Spielstand unter `esc_hitster_history` in `localStorage`.
+- `app/js/ikonen.js` enthält die handverlesenen Lied-IDs für den Pool „ESC-Ikonen“.
 - Der Modus „Nur Musik hören“ (`screen-music`) liegt ebenfalls in `app.js`. Sein Zustand steckt in der Modulvariable `music`, nicht in `state`.
 - `app/audio/te-deum.mp3` läuft bei der Siegerehrung (Creative Commons Attribution, Quelle im Info-Dialog). Das Repo ist öffentlich, also nur frei lizenzierte Aufnahmen einbinden. `sw.js` lässt `.mp3` am Cache vorbei, weil Safari für Audio Range-Antworten verlangt.
 - `app/js/player.js` kapselt den YouTube-IFrame-Player samt Wiederholungen bei Hängern. Das Video bleibt verdeckt und wird nur bei Werbung eingeblendet.
