@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue, searchSongs,
-  overviewStats, entriesOfYear, entriesOfCountry, historyEntry,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
 } from '../app/js/data.js';
 import {
   DEFAULT_RULES, PRESETS, presetById, presetMatches, matchingPreset, migrateSettings, migrateState, SETTINGS_VERSION,
@@ -18,7 +18,7 @@ const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v)
 const songs = raw.songs.map((s) => ({
   ...s, jahr: num(s.jahr), platz: num(s.platz), teilnehmer: num(s.teilnehmer), punkte: num(s.punkte),
   platz_finale: num(s.platz_finale), land_iso: s.land_iso.toUpperCase(), sonderfall: s.sonderfall || '',
-  runde_ende: s.runde_ende || '', sieger: s.sieger === true || s.sieger === 'ja', youtube_id: (s.youtube_id || '').trim(), embed_ok: s.embed_ok === 'nein' ? false : true,
+  refrain_sek: num(s.refrain_sek), runde_ende: s.runde_ende || '', sieger: s.sieger === true || s.sieger === 'ja', youtube_id: (s.youtube_id || '').trim(), embed_ok: s.embed_ok === 'nein' ? false : true,
 }));
 const byId = (id) => songs.find((s) => s.id === id);
 const FILTER = { mode: 'alle', from: 1956, to: 2026, countries: [] };
@@ -278,4 +278,42 @@ test('Spielverlauf: Eintrag übernimmt Rangliste, Modus und Pool-Namen', () => {
   );
   assert.equal(e.pool, 'ESC-Ikonen');
   assert.deepEqual(e.spieler[1], { name: 'B', platz: 2, karten: 7, tokens: 0.5, zeit: 0 });
+});
+
+test('Refrain-Start: nur mit Schalter und nur hinter dem Spielstart', () => {
+  const mit = songs.filter((s) => s.refrain_sek);
+  assert.ok(mit.length > 600, `${mit.length} Refrains`);
+  for (const s of mit) assert.ok(s.refrain_sek > (s.start_sek || 0), s.id);
+  const s = mit[0];
+  assert.equal(songStart(s, true), s.refrain_sek);
+  assert.equal(songStart(s, false), s.start_sek || 0);
+  const ohne = songs.find((x) => x.jahr < 2000 && !x.refrain_sek && !IKONEN.has(x.id));
+  assert.equal(songStart(ohne, true), ohne.start_sek || 0);
+});
+
+test('Handicap: eigener Pool und Zeitraum, Länder bleiben gemeinsam', () => {
+  const base = { ...FILTER, countries: ['DE'] };
+  const hc = { mode: 'top10', topN: 100, decadeN: 15, from: 2000, to: 2026 };
+  const f = playerFilter(base, hc);
+  assert.deepEqual(f.countries, ['DE']);
+  const own = filterPool(songs, f, true);
+  assert.ok(own.length > 0);
+  for (const s of own) assert.ok(s.land_iso === 'DE' && s.jahr >= 2000 && s.platz_finale <= 10, s.id);
+  assert.equal(playerFilter(base, null), base);
+  assert.equal(handicapLabel(hc), 'Top 10 · 2000–2026');
+  assert.equal(handicapLabel({ ...hc, mode: 'topn', topN: 50 }), 'Top-50 bekannteste · 2000–2026');
+});
+
+test('Migration v6: Refrain, Siegermusik und Handicaps ergänzen alte Stände', () => {
+  const m = migrateSettings({ v: 5, rules: { ...DEFAULT_RULES, artist: true }, trackTime: true });
+  assert.equal(m.v, SETTINGS_VERSION);
+  assert.equal(m.refrain, false);
+  assert.equal(m.endFull, false);
+  assert.deepEqual(m.handicaps, []);
+  assert.equal(m.trackTime, true);
+  const saved = migrateState({
+    settings: { rules: { ...DEFAULT_RULES } }, players: [{ name: 'A', timeline: [], tokens: 2, bonusCards: 0, freeSkips: 1, wrong: [], time: 0 }], cur: null,
+  });
+  assert.equal(saved.settings.refrain, false);
+  assert.equal(saved.players[0].handicap, null);
 });

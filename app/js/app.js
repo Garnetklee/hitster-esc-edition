@@ -3,7 +3,7 @@ import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
-  overviewStats, entriesOfYear, entriesOfCountry, historyEntry,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -93,6 +93,7 @@ function mysteryHTML(cls = '') {
 /* ------------------------------------------------------------------ Setup */
 const setup = {
   names: ['Spieler 1', 'Spieler 2'],
+  handicaps: [], // je Spieler null oder { mode, topN, decadeN, from, to }
   countries: new Set(),
   hasPop: false,
   minYear: 1956,
@@ -187,10 +188,67 @@ function syncTarget() {
 function renderPlayerInputs() {
   const box = $('#player-list');
   box.innerHTML = setup.names.map((n, i) =>
-    `<label class="player-input"><span class="pnum">${i + 1}</span><input type="text" maxlength="16" value="${esc(n)}" data-i="${i}" aria-label="Name Spieler ${i + 1}" enterkeyhint="done"></label>`).join('');
+    `<div class="player-input"><span class="pnum">${i + 1}</span><input type="text" maxlength="16" value="${esc(n)}" data-i="${i}" aria-label="Name Spieler ${i + 1}" enterkeyhint="done">${hcButton(i)}</div>`).join('');
   $$('input', box).forEach((inp) => inp.addEventListener('input', () => { setup.names[+inp.dataset.i] = inp.value; updateCount(); }));
+  $$('[data-hc]', box).forEach((b) => b.addEventListener('click', () => openHandicap(+b.dataset.hc)));
   $('#btn-add-player').disabled = setup.names.length >= 8;
   $('#btn-remove-player').disabled = setup.names.length <= 1;
+}
+
+function hcButton(i) {
+  const hc = setup.handicaps[i];
+  return `<button type="button" class="hc-btn ${hc ? 'on' : ''}" data-hc="${i}" title="Handicap: eigener Pool und Zeitraum für diesen Spieler" aria-label="Handicap">⚖</button>${hc ? `<button type="button" class="hc-info" data-hc="${i}">Handicap: ${esc(handicapLabel(hc))}</button>` : ''}`;
+}
+
+/* ------------------------------------------------------------------ Handicap pro Spieler */
+let hcIndex = -1;
+
+function readHandicap() {
+  const f = readFilter();
+  return {
+    mode: radioVal('hc-pool') || 'alle',
+    topN: Math.max(1, parseInt($('#hc-topn').value, 10) || f.topN),
+    decadeN: Math.max(1, parseInt($('#hc-decade').value, 10) || f.decadeN),
+    from: parseInt($('#hc-from').value, 10) || setup.minYear,
+    to: parseInt($('#hc-to').value, 10) || setup.maxYear,
+  };
+}
+
+function updateHandicapCount() {
+  const hc = readHandicap();
+  $('#hc-topn-field').hidden = hc.mode !== 'topn';
+  $('#hc-decade-field').hidden = hc.mode !== 'jahrzehnt';
+  const n = filterPool(DATA.songs, playerFilter(readFilter(), hc), DEV).length;
+  $('#hc-count').textContent = `${n} Lieder in diesem Pool${n < 5 ? ' – zu wenige, es wird dann aus dem gemeinsamen Pool gezogen' : ''}`;
+}
+
+function openHandicap(i) {
+  hcIndex = i;
+  const f = readFilter();
+  const hc = setup.handicaps[i] || { mode: f.mode, topN: f.topN, decadeN: f.decadeN, from: f.from, to: f.to };
+  $('#hc-title').textContent = `Handicap für ${(setup.names[i] || '').trim() || `Spieler ${i + 1}`}`;
+  setRadio('hc-pool', hc.mode);
+  $('#hc-topn').value = hc.topN;
+  $('#hc-decade').value = hc.decadeN;
+  $('#hc-from').value = hc.from;
+  $('#hc-to').value = hc.to;
+  for (const id of ['#hc-from', '#hc-to']) { $(id).min = setup.minYear; $(id).max = setup.maxYear; }
+  updateHandicapCount();
+  $('#dlg-handicap').showModal();
+}
+
+function closeHandicap(hc) {
+  setup.handicaps[hcIndex] = hc;
+  $('#dlg-handicap').close();
+  renderPlayerInputs();
+  updateCount();
+}
+
+function initHandicap() {
+  $('#dlg-handicap').addEventListener('input', updateHandicapCount);
+  $('#dlg-handicap').addEventListener('change', updateHandicapCount);
+  $('#hc-ok').onclick = () => closeHandicap(readHandicap());
+  $('#hc-reset').onclick = () => closeHandicap(null);
 }
 
 function renderCountryChips() {
@@ -208,7 +266,10 @@ const POOL_HINTS = {
 
 function updateCount() {
   const f = readFilter();
-  const n = filterPool(DATA.songs, f, DEV).length;
+  const list = filterPool(DATA.songs, f, DEV);
+  const n = list.length;
+  const withRefrain = list.filter((s) => songStart(s, true) !== songStart(s)).length;
+  $('#refrain-hint').textContent = `Im aktuellen Pool haben ${withRefrain} von ${n} Liedern einen erkannten Refrain.`;
   const players = setup.names.length;
   const need = players + 5;
   $('#pool-count').textContent = n;
@@ -238,6 +299,8 @@ function applySettings(st) {
   if (st.rules) writeRules(st.rules);
   $('#chk-time').checked = !!st.trackTime;
   $('#chk-endfull').checked = !!st.endFull;
+  $('#chk-refrain').checked = !!st.refrain;
+  setup.handicaps = (st.handicaps || []).slice(0, setup.names.length);
 }
 
 function initSetup() {
@@ -282,7 +345,7 @@ function initSetup() {
   }
 
   $('#btn-add-player').onclick = () => { if (setup.names.length < 8) { setup.names.push(`Spieler ${setup.names.length + 1}`); renderPlayerInputs(); updateCount(); } };
-  $('#btn-remove-player').onclick = () => { if (setup.names.length > 1) { setup.names.pop(); renderPlayerInputs(); updateCount(); } };
+  $('#btn-remove-player').onclick = () => { if (setup.names.length > 1) { setup.names.pop(); setup.handicaps.length = Math.min(setup.handicaps.length, setup.names.length); renderPlayerInputs(); updateCount(); } };
   $('#setup').addEventListener('input', updateCount);
   $('#setup').addEventListener('change', updateCount);
   $('#preset-grid').addEventListener('click', (e) => {
@@ -347,9 +410,12 @@ const score = (p) => p.timeline.length + p.bonusCards;
 const isSolo = () => state.players.length === 1;
 function pool() { return state ? filterPool(DATA.songs, state.settings.filter, DEV) : filterPool(DATA.songs, readFilter(), DEV); }
 
-function draw() {
+/** Zieht für Spieler i (Standard: wer dran ist), mit Handicap aus seinem eigenen Pool, wenn dort noch etwas übrig ist. */
+function draw(i = state.active) {
   const used = new Set(state.used);
-  const candidates = pool().filter((s) => !used.has(s.id));
+  const hc = state.players[i]?.handicap;
+  const own = hc ? filterPool(DATA.songs, playerFilter(state.settings.filter, hc), DEV).filter((s) => !used.has(s.id)) : [];
+  const candidates = own.length ? own : pool().filter((s) => !used.has(s.id));
   if (!candidates.length) return null;
   const s = pickRandom(candidates);
   state.used.push(s.id);
@@ -388,13 +454,15 @@ function startGame() {
     rules: readRules(),
     trackTime: $('#chk-time').checked,
     endFull: $('#chk-endfull').checked,
+    refrain: $('#chk-refrain').checked,
+    handicaps: names.map((_, i) => setup.handicaps[i] || null),
   };
   store.set(KEY_SETTINGS, settings);
-  state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [], time: 0 })), active: 0, round: 1, used: [], cur: null, finished: false };
-  for (const p of state.players) {
-    const s = draw();
+  state = { v: 1, settings, players: names.map((name, i) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [], time: 0, handicap: settings.handicaps[i] })), active: 0, round: 1, used: [], cur: null, finished: false };
+  state.players.forEach((p, i) => {
+    const s = draw(i);
     if (s) p.timeline.push(s.id);
-  }
+  });
   state.active = Math.floor(Math.random() * state.players.length);
   state.first = state.active;
   showScreen('game');
@@ -432,7 +500,7 @@ function loadAudio(tryAutoplay) {
   const userActive = navigator.userActivation ? navigator.userActivation.hasBeenActive : true;
   const autoplay = tryAutoplay && userActive && state.cur.phase === 'listen';
   setAudioStatus(autoplay ? 'loading' : 'idle');
-  YTP.load(song.youtube_id, song.start_sek || 0, autoplay);
+  YTP.load(song.youtube_id, songStart(song, state.settings.refrain), autoplay);
 }
 
 function replaceSong(reason) {
@@ -834,7 +902,7 @@ function renderScoreboard() {
   const target = state.settings.target;
   $('#scoreboard').innerHTML = state.players.map((pl, i) =>
     `<button class="score ${i === state.active ? 'active' : ''}" data-i="${i}">
-      <span class="s-name">${esc(pl.name)}</span>
+      <span class="s-name">${esc(pl.name)}${pl.handicap ? ` <span class="s-hc" title="Handicap: ${esc(handicapLabel(pl.handicap))}">⚖</span>` : ''}</span>
       <span class="s-cards">Karten <b>${score(pl)}</b>/${target}${pl.bonusCards ? ` <small>(${pl.bonusCards} Bonus)</small>` : ''}</span>
       <span class="s-tokens">Tokens <b>${fmtTokens(pl.tokens)}</b></span>
     </button>`).join('');
@@ -1523,7 +1591,8 @@ function testPlay(from) {
 function testPick(s) {
   testSong = s;
   $('#test-box').hidden = false;
-  $('#test-info').innerHTML = `<b>${esc(s.titel)}</b> · ${esc(s.interpret)}<div class="muted small">${esc(s.land)} ${s.jahr} · Id ${esc(s.id)} · Spielstart bei ${s.start_sek || 0} s</div>`;
+  $('#test-info').innerHTML = `<b>${esc(s.titel)}</b> · ${esc(s.interpret)}<div class="muted small">${esc(s.land)} ${s.jahr} · Id ${esc(s.id)} · Spielstart bei ${s.start_sek || 0} s${songStart(s, true) !== songStart(s) ? ` · Refrain bei ${s.refrain_sek} s` : ''}</div>`;
+  $('#btn-test-refrain').hidden = songStart(s, true) === songStart(s);
   testPlay(s.start_sek || 0);
   testTick();
 }
@@ -1549,6 +1618,7 @@ function initTest() {
   });
   $('#btn-test-start').onclick = () => testPlay(testSong.start_sek || 0);
   $('#btn-test-zero').onclick = () => testPlay(0);
+  $('#btn-test-refrain').onclick = () => testPlay(songStart(testSong, true));
   $('#btn-test-toggle').onclick = () => YTP.toggle();
   $('#btn-test-video').onclick = () => showPlayer('hint');
   $('#advanced').addEventListener('toggle', () => { if (!$('#advanced').open) testStop(); });
@@ -1907,6 +1977,7 @@ async function main() {
   for (const id of ['#timeline', '#tl-view', '#end-tl', '#end-wrong']) tlObserver.observe($(id));
   initMusic();
   initTest();
+  initHandicap();
 
   try {
     DATA = await loadSongs();

@@ -31,6 +31,7 @@ function normalize(s) {
     sonderfall: s.sonderfall || '',
     youtube_id: (s.youtube_id || '').trim(),
     start_sek: num(s.start_sek) || 0,
+    refrain_sek: num(s.refrain_sek),
     embed_ok: bool(s.embed_ok),
     pop_rang: num(s.pop_rang),
   };
@@ -78,6 +79,26 @@ export function filterPool(songs, f, dev = false) {
     }
   });
   return f.mode === 'jahrzehnt' ? topPerDecade(base, f.decadeN || 15) : base;
+}
+
+/** Startpunkt im Video: mit „am Refrain starten“ der Refrain, falls bekannt und hinter dem Spielstart. */
+export function songStart(s, refrain = false) {
+  const start = s.start_sek || 0;
+  return refrain && s.refrain_sek > start ? s.refrain_sek : start;
+}
+
+/** Filter eines Spielers: Handicap ersetzt Pool und Zeitraum, die Länderauswahl gilt für alle. */
+export function playerFilter(base, hc) {
+  if (!hc) return base;
+  return { ...base, mode: hc.mode, topN: hc.topN, decadeN: hc.decadeN, from: hc.from, to: hc.to };
+}
+
+/** Kurzbeschreibung eines Handicaps, z. B. „Top 10 · 2000–2026“. */
+export function handicapLabel(hc) {
+  if (!hc) return '';
+  const pool = hc.mode === 'topn' ? `Top-${hc.topN} bekannteste`
+    : hc.mode === 'jahrzehnt' ? `Top-${hc.decadeN} je Jahrzehnt` : POOL_LABELS[hc.mode] || hc.mode;
+  return `${pool} · ${hc.from}–${hc.to}`;
 }
 
 /** Die n meistgesehenen Lieder je Jahrzehnt, damit alte Lieder nicht gegen die neuen untergehen. */

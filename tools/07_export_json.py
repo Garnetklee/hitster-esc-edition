@@ -1,5 +1,7 @@
 """esc_songs.csv + Caches + intro_whisper.csv + overrides.csv -> esc_songs.json (für die App).
 
+Dazu kommt refrain_sek aus data/refrain.csv (12_find_refrain.py), nur wenn das Video noch dasselbe ist.
+
 Reihenfolge: CSV lesen -> YouTube-/Link-/Popularitäts-Caches anwenden (common.apply_caches)
 -> overrides.csv (id;feld;wert;grund) zuletzt anwenden -> Typen umwandeln -> JSON.
 Schreibt esc/data/esc_songs.json und eine Kopie nach esc/app/data/esc_songs.json.
@@ -65,13 +67,23 @@ def main():
             r[f] = o.get("wert") or ""
             n_ov += 1
     songs = [{k: conv(k, r.get(k, "")) for k in COLS} for r in rows]
+    # Refrain-Start nur, wenn er zum aktuellen Video gehört und hinter dem Spielstart liegt
+    refrain = DATA / "refrain.csv"
+    n_rf = 0
+    if refrain.exists():
+        rf = {o["id"]: o for o in csv.DictReader(refrain.open(encoding="utf-8-sig"), delimiter=";")}
+        for s in songs:
+            o = rf.get(s["id"])
+            sek = conv("start_sek", o["refrain_sek"]) if o and o["youtube_id"] == s["youtube_id"] else None
+            s["refrain_sek"] = sek if sek and sek > (s["start_sek"] or 0) else None
+            n_rf += s["refrain_sek"] is not None
     out = {"generiert": datetime.now().isoformat(timespec="seconds"), "anzahl": len(songs), "songs": songs}
     txt = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
     (DATA / "esc_songs.json").write_text(txt, encoding="utf-8")
     (ESC / "app" / "data").mkdir(parents=True, exist_ok=True)
     shutil.copy(DATA / "esc_songs.json", ESC / "app" / "data" / "esc_songs.json")
     spielbar = sum(1 for s in songs if s["youtube_id"] and s["embed_ok"] is not False)
-    print(f"{len(songs)} Beiträge, {n_wh} Whisper-Starts, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
+    print(f"{len(songs)} Beiträge, {n_wh} Whisper-Starts, {n_rf} Refrains, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
 
 
 if __name__ == "__main__":

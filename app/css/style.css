@@ -118,6 +118,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 40px; }
 /* Setup */
 .player-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .player-input { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,.25); border: 1px solid var(--line); border-radius: 12px; padding: 4px 10px; }
+.player-input input { flex: 1 1 0; min-width: 0; }
+.player-input { flex-wrap: wrap; }
+.hc-btn { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; padding: 0; }
+.hc-btn.on { color: #fff; border-color: var(--magenta); background: rgba(255,47,209,.2); }
+.hc-info { flex: 1 0 100%; text-align: left; border: 0; background: none; color: var(--muted); font: inherit; font-size: .72rem; padding: 0 0 2px 34px; cursor: pointer; }
+.s-hc { font-size: .7rem; color: var(--muted); }
 .pnum { width: 26px; height: 26px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; font-weight: 700; font-size: .85rem; flex: none; }
 input[type=text], input[type=number] {
   background: transparent; border: none; color: var(--text); font: inherit; min-height: 40px; width: 100%; outline: none;

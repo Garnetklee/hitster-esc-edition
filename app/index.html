@@ -184,6 +184,11 @@
           <label class="switch"><input type="checkbox" id="chk-time"><span class="slider"></span>
             <span>Zeit tracken <small class="muted">(Hör- und Denkzeit bis zum Auflösen, nur zur Anzeige)</small></span></label>
 
+          <h3>Start im Lied</h3>
+          <label class="switch"><input type="checkbox" id="chk-refrain"><span class="slider"></span>
+            <span>Am Refrain starten <small class="muted">(gilt für jeden Pool, Lieder ohne erkannten Refrain starten wie bisher)</small></span></label>
+          <div class="muted small hint" id="refrain-hint"></div>
+
           <h3>Siegerehrung</h3>
           <label class="switch"><input type="checkbox" id="chk-endfull"><span class="slider"></span>
             <span>Siegermusik in voller Länge <small class="muted">(sonst nach gut 30 s ausgeblendet)</small></span></label>
@@ -197,6 +202,7 @@
             <div id="test-pos" class="test-pos"></div>
             <div class="row">
               <button type="button" class="btn small" id="btn-test-start">▶ Ab Spielstart</button>
+              <button type="button" class="btn small" id="btn-test-refrain" hidden>♪ Ab Refrain</button>
               <button type="button" class="btn small" id="btn-test-zero">⏮ Ab 0:00</button>
               <button type="button" class="btn small" id="btn-test-toggle">⏸ Pause</button>
               <button type="button" class="btn small" id="btn-test-video">📺 Video zeigen</button>
@@ -369,6 +375,39 @@
       <p class="muted small">Kostet 1 Token. Danach tippt der Klauende eine andere Lücke in der Zeitleiste.</p>
       <div id="steal-players" class="col"></div>
       <div class="row"><button class="btn ghost" value="close">Abbrechen</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-handicap">
+    <form method="dialog" class="dlg">
+      <h2 id="hc-title">Handicap</h2>
+      <p class="muted small">Eigener Lieder-Pool und Zeitraum für diesen Spieler. Die Länderauswahl gilt für alle.</p>
+      <h3>Lieder-Pool</h3>
+      <div class="radio-grid compact" id="hc-pools">
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="alle"><span>Alle</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="finale"><span>Nur Finale</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="top10"><span>Top 10</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="top3"><span>Top 3</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="sieger"><span>Nur Sieger</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="nul"><span>„Nul points“</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="topn"><span>Top-N bekannteste</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="jahrzehnt"><span>Top-N je Jahrzehnt</span></label>
+          <label class="chip-radio"><input type="radio" name="hc-pool" value="ikonen"><span>ESC-Ikonen</span></label>
+      </div>
+      <div class="row years" id="hc-n-row">
+        <label class="field inline" id="hc-topn-field"><span>N bekannteste</span><input type="number" id="hc-topn" min="5" max="2000" step="5" inputmode="numeric" enterkeyhint="done"></label>
+        <label class="field inline" id="hc-decade-field"><span>N je Jahrzehnt</span><input type="number" id="hc-decade" min="1" max="200" inputmode="numeric" enterkeyhint="done"></label>
+      </div>
+      <h3>Zeitraum</h3>
+      <div class="row years">
+        <label class="field inline"><span>von</span><input type="number" id="hc-from" inputmode="numeric" enterkeyhint="done"></label>
+        <label class="field inline"><span>bis</span><input type="number" id="hc-to" inputmode="numeric" enterkeyhint="done"></label>
+      </div>
+      <div class="muted small" id="hc-count"></div>
+      <div class="row">
+        <button class="btn ghost" type="button" id="hc-reset">Kein Handicap</button>
+        <button class="btn primary" type="button" id="hc-ok">Übernehmen</button>
+      </div>
     </form>
   </dialog>
 
