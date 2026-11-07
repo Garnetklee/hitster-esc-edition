@@ -184,6 +184,10 @@
           <label class="switch"><input type="checkbox" id="chk-time"><span class="slider"></span>
             <span>Zeit tracken <small class="muted">(Hör- und Denkzeit bis zum Auflösen, nur zur Anzeige)</small></span></label>
 
+          <h3>Siegerehrung</h3>
+          <label class="switch"><input type="checkbox" id="chk-endfull"><span class="slider"></span>
+            <span>Siegermusik in voller Länge <small class="muted">(sonst nach gut 30 s ausgeblendet)</small></span></label>
+
           <h3>Lied testen</h3>
           <div class="muted small hint">Spielt ein bestimmtes Lied, zum Beispiel um das Intro zu prüfen. Suche nach Titel, Interpret, Land oder Jahr.</div>
           <input type="text" class="test-input" id="test-search" autocomplete="off" enterkeyhint="done" placeholder="z. B. Anouschka oder Deutschland 1969" aria-label="Lied suchen">
@@ -219,6 +223,7 @@
       </div>
       <div id="deck" class="deck"></div>
       <div id="controls" class="controls"></div>
+      <label class="vol-row"><span aria-hidden="true">🔈</span><input type="range" class="vol" min="0" max="100" step="5" value="100" aria-label="Lautstärke"><span aria-hidden="true">🔊</span></label>
       <div id="bonus" class="bonus"></div>
       <div id="reveal" class="reveal" hidden></div>
     </section>
@@ -241,6 +246,7 @@
           <button type="button" class="btn play big" id="btn-music-play"></button>
           <button type="button" class="btn music-skip" id="btn-music-next" aria-label="Nächstes Lied">⏭</button>
         </div>
+        <label class="vol-row"><span aria-hidden="true">🔈</span><input type="range" class="vol" min="0" max="100" step="5" value="100" aria-label="Lautstärke"><span aria-hidden="true">🔊</span></label>
         <div class="stall" id="music-stall" hidden>
           <span>Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.</span>
           <div class="row"><button type="button" class="btn small" id="btn-music-player">📺 Player zeigen</button></div>
@@ -338,7 +344,7 @@
       <p class="muted small">Spielregeln: Höre das Lied, ziehe die verdeckte Karte an die passende Stelle deiner Zeitleiste
         und löse auf. Gleiche Jahre zählen als richtig. Das erste Überspringen ist gratis, danach kostet es 1 Token.
         Erreicht jemand das Ziel, spielen die übrigen Spieler die Runde noch zu Ende, damit alle gleich oft dran waren. Allein spielst du, bis du das Ziel erreichst, und siehst am Ende deine Rundenzahl.</p>
-      <p class="muted small">Musik bei der Siegerehrung: Marc-Antoine Charpentier, Prélude du Te Deum, vom YouTube-Kanal <a href="https://www.youtube.com/watch?v=huLba3yG8D8" target="_blank" rel="noopener">Les Arts Florissants</a>, Lizenz Creative Commons Attribution. Für die App gekürzt, in der Lautstärke angeglichen und ausgeblendet.</p>
+      <p class="muted small">Musik bei der Siegerehrung: Marc-Antoine Charpentier, Prélude du Te Deum, vom YouTube-Kanal <a href="https://www.youtube.com/watch?v=huLba3yG8D8" target="_blank" rel="noopener">Les Arts Florissants</a>, Lizenz Creative Commons Attribution. Für die App ab 0:13 geschnitten und in der Lautstärke angeglichen.</p>
       <p class="muted small">Tokens sind sozusagen die Bonuspunkte: Interpret, Titel und Land bringen je ½ Token. Die Platzierung bringt exakt 1 Token und bis zu 2 Plätze daneben ½, besser/schlechter ½. Das genaue Jahr bringt exakt 1 Token und bis zu 2 Jahre daneben ½, aber nur, wenn die Karte richtig liegt.
         Bei gleich vielen Karten gewinnt, wer mehr Tokens hat. Beim Auflösen zeigt die linke Karte deine Eingaben in Grün (richtig), Gelb (fast richtig) oder Rot (falsch).</p>
       <p class="muted small">Klauen (nur wenn eingeschaltet): Ein anderer Spieler setzt 1 Token auf eine andere Lücke. Liegt der

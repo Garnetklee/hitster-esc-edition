@@ -15,6 +15,7 @@ const KEY_STATE = 'esc_hitster_state';
 const KEY_SETTINGS = 'esc_hitster_settings';
 const KEY_ERRORS = 'esc_hitster_errors';
 const KEY_HISTORY = 'esc_hitster_history';
+const KEY_VOLUME = 'esc_hitster_volume'; // nur Gerätekomfort
 const HISTORY_MAX = 200;
 const START_TOKENS = 2;
 const DEV = new URLSearchParams(location.search).get('dev') === '1';
@@ -236,6 +237,7 @@ function applySettings(st) {
   setup.countries = new Set((f.countries || []).filter((c) => COUNTRY_NAMES.has(c)));
   if (st.rules) writeRules(st.rules);
   $('#chk-time').checked = !!st.trackTime;
+  $('#chk-endfull').checked = !!st.endFull;
 }
 
 function initSetup() {
@@ -385,6 +387,7 @@ function startGame() {
     filter: readFilter(),
     rules: readRules(),
     trackTime: $('#chk-time').checked,
+    endFull: $('#chk-endfull').checked,
   };
   store.set(KEY_SETTINGS, settings);
   state = { v: 1, settings, players: names.map((name) => ({ name, timeline: [], tokens: START_TOKENS, bonusCards: 0, freeSkips: 1, wrong: [], time: 0 })), active: 0, round: 1, used: [], cur: null, finished: false };
@@ -691,8 +694,20 @@ function playEndMusic() {
   const b = $('#btn-end-audio');
   b.hidden = false;
   a.currentTime = 0;
+  a.volume = 1;
   // Blockt der Browser den Start, bleibt der Knopf zum Einschalten
   a.play().catch(() => { b.textContent = '🔊 Musik an'; });
+}
+
+// Siegermusik ohne „volle Länge“ nach 32 s in 3 s ausblenden
+const END_SHORT = 32;
+const END_FADE = 3;
+function endMusicTick() {
+  const a = $('#end-audio');
+  if (state?.settings?.endFull) { a.volume = 1; return; }
+  const t = a.currentTime;
+  if (t >= END_SHORT) { a.pause(); a.volume = 1; a.currentTime = 0; return; }
+  a.volume = t > END_SHORT - END_FADE ? Math.max(0, (END_SHORT - t) / END_FADE) : 1;
 }
 
 /** Zeitleiste und falsch geratene Karten eines Spielers in der Auswertung. */
@@ -1541,8 +1556,24 @@ function initTest() {
 }
 
 /* ------------------------------------------------------------------ Player-Ereignisse */
+/** Lautstärkeregler im Spiel und im Musikplayer, beide zeigen denselben Wert. */
+function initVolume() {
+  const v = store.get(KEY_VOLUME, 100);
+  YTP.setVolume(v);
+  for (const r of $$('input.vol')) {
+    r.value = v;
+    r.addEventListener('input', () => {
+      const n = Number(r.value);
+      YTP.setVolume(n);
+      for (const o of $$('input.vol')) if (o !== r) o.value = n;
+      store.set(KEY_VOLUME, n);
+    });
+  }
+}
+
 function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
+  initVolume();
   YTP.initPlayer({
     onState(st) {
       // Werbung vorbei, das Lied lädt oder startet: Player sofort verstecken, damit nichts verraten wird
@@ -1610,6 +1641,9 @@ function openStats() {
   renderStats();
   renderHistory();
   showScreen('stats');
+  // Heatmap zeigt zuerst die neuesten Jahre
+  const hm = $('#heatmap');
+  hm.scrollLeft = hm.scrollWidth;
 }
 
 function closeStats() {
@@ -1774,8 +1808,16 @@ function renderStats() {
     ${notes ? `<div class="muted small">${notes}</div>` : ''}
     ${st.all.length ? `<details class="sub-details"><summary>Alle Platzierungen</summary>
       <div class="stat-all">${st.all.map((a) => `<div class="${a.count ? '' : 'muted'}">Platz ${a.place}: <b>${a.count}×</b></div>`).join('')}</div></details>` : ''}
-    <h3>Alle Beiträge</h3>
-    ${entriesOfCountry(DATA.songs, iso).map((s) => entryHTML(s, `<span class="entry-year">${s.jahr}</span>`)).join('')}`;
+    <h3>Beiträge</h3>
+    ${countryEntriesHTML(entriesOfCountry(DATA.songs, iso))}`;
+}
+
+/** Die neuesten 3 Beiträge offen, der Rest zum Ausklappen. */
+function countryEntriesHTML(list) {
+  const row = (s) => entryHTML(s, `<span class="entry-year">${s.jahr}</span>`);
+  const first = list.slice(0, 3).map(row).join('');
+  if (list.length <= 3) return first;
+  return `${first}<details class="sub-details entries-more"><summary>Alle ${list.length} Beiträge anzeigen</summary>${list.slice(3).map(row).join('')}</details>`;
 }
 
 /** Eine Zeile der Teilnehmerliste: links Flagge oder Jahr, rechts die Platzierung. */
@@ -1858,6 +1900,7 @@ async function main() {
   endAudioBtn.onclick = () => { if (endAudio.paused) endAudio.play(); else endAudio.pause(); };
   endAudio.addEventListener('play', () => { endAudioBtn.textContent = '🔇 Musik aus'; });
   endAudio.addEventListener('pause', () => { endAudioBtn.textContent = '🔊 Musik an'; });
+  endAudio.addEventListener('timeupdate', endMusicTick);
   document.addEventListener('visibilitychange', clockVisibility);
   window.addEventListener('pagehide', () => { clockStop(); save(); });
   const tlObserver = new ResizeObserver((list) => list.forEach((x) => fitOverlap(x.target)));

@@ -587,6 +587,8 @@ html, body { overflow-x: clip; }
 .music-artist { font-size: 1.05rem; color: #e3d8ff; overflow-wrap: anywhere; }
 .music-meta { font-size: .85rem; color: var(--muted); }
 .music-progress { display: flex; align-items: center; gap: 10px; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vol-row { display: flex; align-items: center; gap: 8px; max-width: 320px; margin: 10px auto 0; font-size: .9rem; }
+.vol-row input { flex: 1 1 auto; min-width: 0; accent-color: var(--magenta); }
 .music-progress input { flex: 1 1 auto; min-width: 0; accent-color: var(--magenta); }
 .music-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 14px 0; }
 .music-controls .btn.play { flex: 0 1 200px; }

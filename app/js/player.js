@@ -10,6 +10,7 @@ let current = null; // { videoId, start }
 let pending = null; // Laden, bevor der Player bereit war
 let timer = null;
 let userRequested = false;
+let volume = 100;
 
 export const State = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
 
@@ -23,7 +24,7 @@ export function initPlayer(h) {
       events: {
         onReady: (e) => {
           ready = true;
-          e.target.setVolume(100);
+          e.target.setVolume(volume);
           e.target.unMute();
           if (pending) { const p = pending; pending = null; load(p.videoId, p.start, p.autoplay); }
           handlers.onReady && handlers.onReady();
@@ -127,4 +128,10 @@ export const duration = () => (ready && player.getDuration ? player.getDuration(
 
 export function seek(sec) {
   if (ready && player.seekTo) player.seekTo(sec, true);
+}
+
+/** Lautstärke 0–100, wirkt auch, wenn der Player noch lädt. */
+export function setVolume(v) {
+  volume = Math.max(0, Math.min(100, Math.round(v)));
+  if (ready && player.setVolume) player.setVolume(volume);
 }
