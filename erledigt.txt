@@ -1,4 +1,26 @@
 ==================== Erledigt ====================
+✅ erledigt (2026-11-08 00:25) – Die Musik bei der Siegerehrung soll an einer späteren Stelle im lied losgehen. zeig mir weclhes Video genau wir nutzen, dann suche ich selbst die passende Stelle.
+(Wartet auf Finn: Video ist https://www.youtube.com/watch?v=huLba3yG8D8, gewünschte Startzeit als mm:ss nennen, dann wird die MP3 neu geschnitten.)
+00:13 und schalter in extra einstellungen, um volle länge abzuspielen
+   → Te Deum neu geschnitten: startet bei 0:13 und enthält das ganze Prélude (1:40). Standardmäßig blendet die App nach 32 s aus, mit dem neuen Schalter „Siegermusik in voller Länge“ (Erweiterte Einstellungen → Siegerehrung) läuft es bis zum Ende. Selbst testen: am iPhone kann Safari nicht ausblenden, dort stoppt die Musik nach 32 s ohne Ausblenden.
+
+✅ erledigt (2026-11-08 00:25) – kann man die Lautstärke des Players steuern? eigener lautstärke Schieberegler auf unserer sichtbaren Seite einfügen.
+   → Ja: Schieberegler 🔈–🔊 unter den Spielknöpfen und im Modus „Nur Musik hören“. Der Wert bleibt auf dem Gerät gespeichert. Selbst testen: iPhone/iPad erlauben YouTube-Lautstärke oft nicht per Seite, dort gilt nur die Gerätelautstärke.
+
+✅ erledigt (2026-11-08 00:25) – Die Auswsertung der Lieder nach Refrain ist fertig durchgelaufen. Wie sieht das Ergebnis aus? Baue damit die neue Einstellung "am Refrain starten". Es soll zusätzlich sein zu den beiden Liederpool auswahlen, wozu ich die Refrains suchen lassen habe.
+   → Ergebnis (1059 Lieder): 314 sicher, 353 mittel, 281 unsicher, 111 ohne Treffer. Sichere + mittlere (667) kommen als data/refrain.csv in den Export. Neuer Schalter „Am Refrain starten“ in den Erweiterten Einstellungen, gilt zusätzlich zu jedem Pool, Lieder ohne Refrain starten wie bisher. Hinweis zeigt, wie viele Lieder im Pool einen Refrain haben. Unter „Lied testen“ gibt es „♪ Ab Refrain“ zum Prüfen.
+
+✅ erledigt (2026-11-08 00:25) – Startseite:
+Pro Spieler eigene Handycaps einstellen. 1 button für handicap beim Spielernamen. Bei anklicken anderen Liederpool für diesen Spieler wählen und ggfs noch andere einstellungen ändern.
+   → ⚖-Knopf neben jedem Spielernamen: eigener Lieder-Pool und eigener Zeitraum (Länderauswahl bleibt gemeinsam), mit Anzeige der Liedanzahl. Der Spieler zieht dann aus seinem Pool, ist der leer, aus dem gemeinsamen. Im Spiel steht ⚖ neben seinem Namen.
+
+✅ erledigt (2026-11-08 00:25) – Statistik Seite:
+die Heatmap soll standardmäßig bis ans Ende gescrollt sein, sodass man das neueste Jahr sehen kann.
+   → Beim Öffnen der Statistik steht die Heatmap rechts bei den neuesten Jahren.
+
+✅ erledigt (2026-11-08 00:25) – wenn man ein land gesucht hat, Liste der Teilnahmen zum ausklappen machen. Standard eingeklappt und nur die letzten 3 angezeigt
+   → Die neuesten 3 Beiträge sind sichtbar, darunter „Alle N Beiträge anzeigen“ zum Ausklappen.
+
 ✅ erledigt (2026-11-04 18:11) – ein klick oben links auf Hitster ESC Edition soll wieder zurück zur Startseite führen.
    → Das Logo führt zur Startseite. Ein laufendes Spiel bleibt gespeichert und lässt sich dort fortsetzen. Auf der Startseite selbst bleibt das Logo oben wie bisher ausgeblendet.
 

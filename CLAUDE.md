@@ -45,6 +45,7 @@ python -m venv .venv
 - `app/js/app.js` enthält UI und Spielablauf und ist bewusst ein großes Modul. Arbeit daran läuft deshalb nacheinander, nicht parallel.
 - Der Zustand steckt in einem einzigen serialisierbaren Objekt `state`. Es enthält die Spieler (Zeitleisten nur als Lied-IDs), die gezogenen Lieder und `state.cur`, den aktuellen Zug mit `phase`, gewählter Lücke und Tipps. Nach Änderungen folgt `save()` (`localStorage`) und `render()`, das die Spielansicht aus dem Zustand neu zeichnet. Flüchtiges gehört in Modulvariablen, nicht in `state`.
 - Ablauf eines Zugs: `startTurn` → `draw` → Hören und Lücke wählen → `tryReveal`/`reveal` → `nextTurn`, am Ende `endGame`.
+- Handicaps: Jeder Spieler kann in `state.players[i].handicap` einen eigenen Pool und Zeitraum haben (`playerFilter` in `data.js`), `draw(i)` zieht daraus und fällt bei leerem Pool auf den gemeinsamen zurück.
 - `app/js/settings.js` definiert die Regeln (`DEFAULT_RULES`), die fertigen Modi (`PRESETS`) und die Migrationen. Spielmodi sind nur Kombinationen dieser Regeln.
 - `app/js/data.js` lädt und normalisiert die Lieder (`loadSongs`, Fallback auf `data/sample.json`) und enthält die reine Logik: Pool-Filter, Token-Berechnung, Text-Abgleich, Statistik.
 - Die Statistikseite (`screen-stats`, Umschalter in der Kopfzeile) liegt in `app.js`, ihre Auswertungen in `data.js`. Der Spielverlauf steht getrennt vom Spielstand unter `esc_hitster_history` in `localStorage`.
@@ -63,6 +64,7 @@ Die nummerierten Skripte in `tools/` bauen aufeinander auf: Wikipedia → Wikida
 - `07_export_json.py` wendet zuerst die Caches und zuletzt `overrides.csv` an, schreibt `data/esc_songs.json` und kopiert die Datei nach `app/data/`. Die App liest nur die Kopie, `app/data/esc_songs.json` nie von Hand ändern.
 - `04_find_youtube.py` und `05_check_links.py` nicht gleichzeitig laufen lassen, beide schreiben `youtube_cache.json`.
 - Startpunkte bis 1979 kommen aus `10_find_speech.py` (lokales Whisper mit eigenem venv `C:\Users\Finns\esc-intro-venv`, schreibt `data/raw/speech_cache.json`) und `11_whisper_starts.py` (Regel, schreibt `data/intro_whisper.csv` und den Bericht `data/raw/intro_whisper_bericht.txt`). Ziel ist, Spoiler zu vermeiden: Ohne sicheren Treffer bleibt der bisherige Start. Der Export wendet die Datei vor `overrides.csv` an.
+- Refrain-Starts kommen aus `12_find_refrain.py` (gleiches Whisper-venv, Cache `data/raw/refrain_cache.json`). Es schreibt sichere und mittlere Treffer nach `data/refrain.csv` (im Repo), der Export übernimmt daraus `refrain_sek`. Nur neu auswerten ohne Download: `--ohne-erkennung`. Die App nutzt das Feld beim Schalter „Am Refrain starten“ (`settings.refrain`, `songStart` in `data.js`).
 - `09_check_intro.py` (Musikeinsatz) ist überholt. `--schreibe-overrides` dort nicht mehr nutzen, die frühere Auswahl liegt nur als Archiv in `data/intro_musik_archiv.csv`.
 - Feldformate und Sonderfälle (1956, 1969, 2020, Halbfinal-Aus) stehen in `data/SCHEMA.md`.
 - `PLAN.md`, `SCHEMA.md` und die Docstrings der Skripte nennen teils noch den alten Pfad `esc/`. Das Projekt liegt inzwischen direkt im Repo-Wurzelordner.
