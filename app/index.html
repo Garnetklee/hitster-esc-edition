@@ -34,7 +34,9 @@
       <span>Hitster <b>ESC</b> Edition</span>
     </button>
     <nav class="view-tabs" aria-label="Ansicht">
-      <button type="button" id="tab-play" class="on">Spiel</button>
+      <button type="button" id="tab-play" class="on">Hitster</button>
+      <button type="button" id="tab-hl">Higher Lower</button>
+      <button type="button" id="tab-stream">Streaming</button>
       <button type="button" id="tab-stats">Statistik</button>
     </nav>
     <div class="topbar-actions">
@@ -303,6 +305,10 @@
     </section>
 
     <!-- ================= ENDE ================= -->
+    <!-- Higher Lower und Streaming ranken: Inhalt kommt aus js/modi.js -->
+    <section id="screen-hl" class="screen modi" hidden></section>
+    <section id="screen-stream" class="screen modi" hidden></section>
+
     <section id="screen-end" class="screen" hidden>
       <canvas id="fireworks" hidden aria-hidden="true"></canvas>
       <div class="panel center end">

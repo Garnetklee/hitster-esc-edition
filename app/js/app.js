@@ -10,6 +10,7 @@ import {
   SETTINGS_VERSION, PRESETS, DEFAULT_PRESET, CONVERT_TARGETS, TARGET_CHOICES, TIME_LIMITS, presetById, matchingPreset, migrateSettings, migrateState,
 } from './settings.js';
 import { startFireworks } from './fireworks.js';
+import { initModi, openModus } from './modi.js';
 
 const KEY_STATE = 'esc_hitster_state';
 const KEY_SETTINGS = 'esc_hitster_settings';
@@ -725,14 +726,15 @@ function showEndCards(i) {
 
 /* ------------------------------------------------------------------ Rendern */
 let screen = 'setup';
-let backTo = 'setup'; // Bildschirm, zu dem der Reiter „Spiel“ von der Statistik zurückführt
+let backTo = 'setup'; // Bildschirm, zu dem der Reiter „Hitster“ von Statistik, Higher Lower und Streaming zurückführt
+const MODE_SCREENS = ['stats', 'hl', 'stream']; // Reiter neben Hitster
 
 function showScreen(name) {
   screen = name;
-  for (const s of ['setup', 'game', 'end', 'music', 'stats']) $(`#screen-${s}`).hidden = s !== name;
+  for (const s of ['setup', 'game', 'end', 'music', 'stats', 'hl', 'stream']) $(`#screen-${s}`).hidden = s !== name;
   $('#btn-menu').hidden = name !== 'game';
-  $('#tab-play').classList.toggle('on', name !== 'stats');
-  $('#tab-stats').classList.toggle('on', name === 'stats');
+  $('#tab-play').classList.toggle('on', !MODE_SCREENS.includes(name));
+  for (const m of MODE_SCREENS) $(`#tab-${m}`).classList.toggle('on', name === m);
   if (name !== 'end') $('#end-audio').pause();
   if (name !== 'stats') heatTipHide();
   document.body.classList.toggle('on-setup', name === 'setup');
@@ -1635,7 +1637,7 @@ function openStats() {
   if (screen === 'game') pauseGame();
   if (music) closeMusic(); // setzt screen auf setup
   testStop();
-  backTo = screen;
+  if (!MODE_SCREENS.includes(screen)) backTo = screen;
   renderOverview();
   renderHeatmap();
   renderStats();
@@ -1646,8 +1648,19 @@ function openStats() {
   hm.scrollLeft = hm.scrollWidth;
 }
 
+/** Reiter Higher Lower und Streaming: Inhalt und Spielstand liegen in modi.js. */
+function openMode(name) {
+  if (screen === name || !DATA.songs.length) return;
+  if (screen === 'game') pauseGame();
+  if (music) closeMusic();
+  testStop();
+  if (!MODE_SCREENS.includes(screen)) backTo = screen;
+  openModus(name);
+  showScreen(name);
+}
+
 function closeStats() {
-  if (screen !== 'stats') return;
+  if (!MODE_SCREENS.includes(screen)) return;
   if (backTo === 'game' && state) resumeGame(state);
   else showScreen(backTo);
 }
@@ -1880,6 +1893,8 @@ async function main() {
   $('#btn-info').onclick = openInfo;
   $('#btn-home').onclick = goHome;
   $('#tab-stats').onclick = openStats;
+  $('#tab-hl').onclick = () => openMode('hl');
+  $('#tab-stream').onclick = () => openMode('stream');
   $('#tab-play').onclick = closeStats;
   $('#btn-clear-history').onclick = () => {
     if (!confirm('Alle vergangenen Spiele auf diesem Gerät löschen?')) return;
@@ -1923,6 +1938,7 @@ async function main() {
   $('#loading').hidden = true;
   $('#setup').hidden = false;
   initSetup();
+  initModi(DATA.songs);
   initAudio();
   limitLast = Date.now();
   setInterval(limitTick, 250);
