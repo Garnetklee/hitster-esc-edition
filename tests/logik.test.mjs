@@ -464,3 +464,14 @@ test('Streaming ranken: Spielablauf mit Sieger nach voller Runde', () => {
   assert.ok(streamLade(JSON.parse(JSON.stringify(st))));
   assert.equal(streamLade({ v: 1, spieler: [] }), null);
 });
+
+import { MAX_ERROR_SERIES, giveBackSongs } from '../app/js/data.js';
+
+test('Fehlerserie: Lieder gehen zurück in den Pool, das aktuelle bleibt gezogen', () => {
+  assert.ok(MAX_ERROR_SERIES > 1);
+  assert.deepEqual(giveBackSongs(['a', 'b', 'c', 'd'], ['b', 'c', 'd'], 'd'), ['a', 'd']);
+});
+
+test('Fehlerserie: wiederholte Fehler desselben Lieds geben es nicht zurück', () => {
+  assert.deepEqual(giveBackSongs(['a', 'd'], ['d', 'd', 'd'], 'd'), ['a', 'd']);
+});

@@ -1,6 +1,6 @@
 // Hitster ESC Edition – Hauptmodul (UI + Spielablauf)
 import {
-  loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom,
+  loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom, MAX_ERROR_SERIES, giveBackSongs,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
   overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
@@ -423,6 +423,9 @@ function draw(i = state.active) {
   return s;
 }
 
+let errorSeries = []; // Lied-IDs der Abspielfehler seit dem letzten erfolgreichen Start
+const youtubeBlocked = () => errorSeries.length >= MAX_ERROR_SERIES;
+
 function newTurn(song) {
   return {
     songId: song.id,
@@ -446,6 +449,7 @@ function newTurn(song) {
 
 function startGame() {
   testStop();
+  errorSeries = [];
   const names = setup.names.map((n, i) => (n || '').trim() || `Spieler ${i + 1}`);
   const settings = {
     v: SETTINGS_VERSION,
@@ -472,6 +476,7 @@ function startGame() {
 
 function resumeGame(saved) {
   testStop();
+  errorSeries = [];
   state = saved;
   // Lieder, die es nicht mehr gibt, entfernen
   for (const p of state.players) p.timeline = p.timeline.filter((id) => BY_ID.has(id));
@@ -1000,8 +1005,9 @@ function renderControls() {
     ${limitBar}
     ${locked ? '<div class="muted small">Zu wenig Tokens zum Weiterhören. Du kannst trotzdem auflösen.</div>' : ''}
     <div class="stall" id="stall" ${c.stalled ? '' : 'hidden'}>
-      <span>Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.</span>
+      <span>${youtubeBlocked() ? 'YouTube lehnt gerade alle Videos ab. Die betroffenen Lieder bleiben im Pool. Versuche es gleich noch einmal oder lade die Seite neu.' : 'Noch keine Musik? Tippe auf Abspielen. Läuft Werbung, kannst du sie im Player überspringen.'}</span>
       <div class="row">
+        ${youtubeBlocked() ? '<button class="btn small" id="btn-yt-retry">↻ Erneut versuchen</button>' : ''}
         <button class="btn small" id="btn-stall-player">📺 Player zeigen</button>
         <button class="btn small" id="btn-other-song">Anderes Lied (gratis)</button>
       </div>
@@ -1023,6 +1029,7 @@ function renderControls() {
   $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
   $('#btn-hint').onclick = () => showPlayer('hint');
   $('#btn-stall-player').onclick = () => showPlayer('ad');
+  if (youtubeBlocked()) $('#btn-yt-retry').onclick = () => loadAudio(true);
   if (showSteal) $('#btn-steal').onclick = openSteal;
   $('#btn-reveal').onclick = tryReveal;
 }
@@ -1392,6 +1399,18 @@ function handleStall(st, cur) {
   if (box) box.hidden = false;
 }
 
+/** Einzelne Fehler überspringen das Lied. Bei einer Serie liegt es an YouTube: anhalten, statt den Pool zu verbrauchen. */
+function handlePlayError(song, code) {
+  errorSeries.push(song.id);
+  if (!youtubeBlocked()) { replaceSong(`Video nicht abspielbar (Fehler ${code}) – neues Lied.`); return; }
+  state.used = giveBackSongs(state.used, errorSeries, song.id);
+  state.cur.stalled = true;
+  setAudioStatus('idle');
+  save();
+  render();
+  toast(`YouTube spielt gerade nichts ab (Fehler ${code}).`, 5000);
+}
+
 /** Nicht gestartet (Autoplay blockiert oder Werbung): Hinweis zeigen, nichts neu laden. */
 function handleBlocked(cur) {
   setAudioStatus('idle');
@@ -1673,6 +1692,7 @@ function initAudio() {
   initVolume();
   YTP.initPlayer({
     onState(st) {
+      if (st === YTP.State.PLAYING) errorSeries = [];
       // Werbung vorbei, das Lied lädt oder startet: Player sofort verstecken, damit nichts verraten wird
       if (playerShown && playerMode === 'ad' && !shownWhilePlaying && (st === YTP.State.PLAYING || st === YTP.State.BUFFERING)) hidePlayer();
       if (st !== YTP.State.PLAYING) shownWhilePlaying = false;
@@ -1699,7 +1719,7 @@ function initAudio() {
       if (!song || !cur || cur.videoId !== song.youtube_id) return;
       logError(song, code);
       console.warn('YouTube-Fehler', code, song.id, song.youtube_id);
-      if (state.cur.phase === 'listen') replaceSong(`Video nicht abspielbar (Fehler ${code}) – neues Lied.`);
+      if (state.cur.phase === 'listen') handlePlayError(song, code);
     },
     onStalled(st, cur) { if (bgSong) bgStatus(false); else if (music) musicStall(); else handleStall(st, cur); },
     onRetry(attempt) { if (bgSong) return; loadAttempt = attempt; setAudioStatus('loading'); },

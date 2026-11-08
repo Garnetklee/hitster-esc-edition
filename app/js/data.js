@@ -302,6 +302,16 @@ export function shuffle(arr) {
 
 export const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+/** Ab so vielen Abspielfehlern in Folge liegt es an YouTube und nicht an den einzelnen Liedern. */
+export const MAX_ERROR_SERIES = 3;
+
+/** Gibt die Lieder einer Fehlerserie an den Pool zurück, das aktuelle Lied bleibt gezogen. */
+export function giveBackSongs(used, failedIds, keepId) {
+  const back = new Set(failedIds);
+  back.delete(keepId);
+  return used.filter((id) => !back.has(id));
+}
+
 /** Überlappung der Karten in px: 0, solange alles passt, sonst so wenig wie möglich, begrenzt auf maxShare der Kartenbreite. */
 export function overlapPx(n, slotW, avail, maxShare = 0.45) {
   if (n < 2) return 0;
