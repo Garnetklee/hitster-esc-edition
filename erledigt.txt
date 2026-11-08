@@ -1,4 +1,12 @@
 ==================== Erledigt ====================
+✅ erledigt (2026-11-08 01:06) – ganz neuer Spielmodus higher lower. mit Aufrufen, Platzierung, Punkte. Oben in der Leiste neben Spiel, Statistik als eigenen Seite. "Spiel" umbenennen zu "Hitster"
+orientiere dich am echten higher lower und baue erstmal frei eine eigene Version davon mit Basic Einstellmöglichkeiten. Liederpoolauswahl von unserem Hitster übernehmen und eventuell andere Einstellungen.
+   → Neuer Reiter „Higher Lower“, der Reiter „Spiel“ heißt jetzt „Hitster“. Drei Spielarten (Serie nacheinander, Abwechseln mit eigenen Karten, Teamwork), Vergleich nach YouTube-Aufrufen, Platzierung oder Punkten im Finale, Lieder-Pool und Zeitraum wie bei Hitster. Der Spielstand bleibt beim Wechseln der Reiter erhalten.
+
+✅ erledigt (2026-11-08 01:06) – weitere Modus "Streaming ranken". Wie hitster, aber statt Jahreszahlen auf dem Zeitstrahl hat man Streamingzahlen. Wenn es geht die Streams von Spotify nutzen. Nur die Teilnehmerlieder von 2000 bis heute und eine sinnvolle mindest stream Anforderung stellen. Es sollen vor allem bekannte Lieder sein, sonst ist es zu schwer.
+Das soll eine erste Demo sein. ich überlege so ein Spiel zu machen, aber nicht für esc Lieder, sonder andere (aber dazu später mehr)
+   → Demo als eigener Reiter „Streaming“: Karten werden nach YouTube-Aufrufen statt nach Jahr in die eigene Leiste gelegt (Spotify hat keine offenen Streamzahlen). Pool: Beiträge ab 2000 mit mindestens 10 Mio. Aufrufen, 127 Lieder. Ziel 5, 7 oder 10 Karten.
+
 ✅ erledigt (2026-11-08 00:25) – Die Musik bei der Siegerehrung soll an einer späteren Stelle im lied losgehen. zeig mir weclhes Video genau wir nutzen, dann suche ich selbst die passende Stelle.
 (Wartet auf Finn: Video ist https://www.youtube.com/watch?v=huLba3yG8D8, gewünschte Startzeit als mm:ss nennen, dann wird die MP3 neu geschnitten.)
 00:13 und schalter in extra einstellungen, um volle länge abzuspielen

@@ -1,5 +1,0 @@
-ganz neuer Spielmodus higher lower. mit Aufrufen, Platzierung, Punkte. Oben in der Leiste neben Spiel, Statistik als eigenen Seite. "Spiel" umbenennen zu "Hitster"
-orientiere dich am echten higher lower und baue erstmal frei eine eigene Version davon mit Basic Einstellmöglichkeiten. Liederpoolauswahl von unserem Hitster übernehmen und eventuell andere Einstellungen.
-
-weitere Modus "Streaming ranken". Wie hitster, aber statt Jahreszahlen auf dem Zeitstrahl hat man Streamingzahlen. Wenn es geht die Streams von Spotify nutzen. Nur die Teilnehmerlieder von 2000 bis heute und eine sinnvolle mindest stream Anforderung stellen. Es sollen vor allem bekannte Lieder sein, sonst ist es zu schwer.
-Das soll eine erste Demo sein. ich überlege so ein Spiel zu machen, aber nicht für esc Lieder, sonder andere (aber dazu später mehr)

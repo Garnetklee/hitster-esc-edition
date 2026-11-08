@@ -317,3 +317,150 @@ test('Migration v6: Refrain, Siegermusik und Handicaps ergänzen alte Stände', 
   assert.equal(saved.settings.refrain, false);
   assert.equal(saved.players[0].handicap, null);
 });
+
+/* ------------------------------------------------------------------ Modi: Higher Lower und Streaming ranken */
+import {
+  HL_METRIKEN, fmtViews, hlPool, hlZiehe, hlStart, hlTipp, hlWeiter, hlRangliste, hlLade,
+  streamPool, streamFits, streamStart, streamZiehe, streamLege, streamWeiter, streamLade, streamRangliste,
+} from '../app/js/modi-logik.js';
+
+const seedRnd = (seed = 7) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+const idMap = new Map(songs.map((s) => [s.id, s]));
+const byIdFn = (id) => idMap.get(id);
+const HL_FILTER = { mode: 'alle', from: 1956, to: 2026, countries: [] };
+
+test('Higher Lower: Pools passen zur Vergleichsgröße', () => {
+  for (const m of ['views', 'platz', 'punkte']) {
+    const pool = hlPool(songs, HL_FILTER, m);
+    assert.ok(pool.length > 500, `${m}: ${pool.length}`);
+    assert.ok(pool.every(HL_METRIKEN[m].ok));
+  }
+  const platz = hlPool(songs, HL_FILTER, 'platz');
+  assert.ok(platz.every((s) => s.runde_ende === 'Finale' && s.jahr !== 2020 && s.jahr !== 1956));
+  assert.ok(!hlPool(songs, HL_FILTER, 'punkte').some((s) => s.jahr === 1956 || s.jahr === 2020));
+});
+
+test('Higher Lower: Gleichstand wird nie gepaart, Platz zählt umgekehrt', () => {
+  const pool = hlPool(songs, HL_FILTER, 'platz');
+  const rnd = seedRnd(3);
+  for (let i = 0; i < 300; i++) {
+    const a = pool[Math.floor(rnd() * pool.length)];
+    const b = hlZiehe(pool, 'platz', HL_METRIKEN.platz.wert(a), [], rnd);
+    assert.notEqual(b.platz_finale, a.platz_finale);
+  }
+  const lena = byIdFn('2010-DE'); // Platz 1
+  const schlecht = pool.find((s) => s.platz_finale === 20);
+  assert.ok(HL_METRIKEN.platz.wert(lena) > HL_METRIKEN.platz.wert(schlecht));
+  assert.equal(fmtViews(46589187), '47 Mio.');
+  assert.equal(fmtViews(1234567), '1,2 Mio.');
+});
+
+function spiele(art, tippFn, n = 3) {
+  const pool = hlPool(songs, HL_FILTER, 'views');
+  const rnd = seedRnd(11);
+  const st = hlStart({ art, metrik: 'views', filter: HL_FILTER, names: ['A', 'B', 'C'].slice(0, n) }, pool, rnd);
+  const aktive = [];
+  for (let i = 0; i < 400 && !st.ende; i++) {
+    aktive.push(st.aktiv);
+    const k = st.ketten[art === 'abwechseln' ? st.aktiv : 0];
+    const richtig = HL_METRIKEN.views.wert(byIdFn(k.rechts)) > HL_METRIKEN.views.wert(byIdFn(k.links)) ? 'hoch' : 'tief';
+    const tipp = tippFn(i, richtig);
+    hlTipp(st, tipp, byIdFn);
+    hlWeiter(st, pool, rnd);
+  }
+  return { st, aktive };
+}
+const falsch = (r) => (r === 'hoch' ? 'tief' : 'hoch');
+
+test('Higher Lower: Serie nacheinander – jeder spielt bis zum Fehler, längste Serie gewinnt', () => {
+  // Spieler 0 trifft 3, Spieler 1 trifft 5, Spieler 2 trifft 1
+  const ziel = [3, 5, 1];
+  const zaehler = [0, 0, 0];
+  let letzter = -1;
+  const pool = hlPool(songs, HL_FILTER, 'views');
+  const rnd = seedRnd(5);
+  const g = hlStart({ art: 'serie', metrik: 'views', filter: HL_FILTER, names: ['A', 'B', 'C'] }, pool, rnd);
+  while (!g.ende) {
+    const k = g.ketten[0];
+    const richtig = HL_METRIKEN.views.wert(byIdFn(k.rechts)) > HL_METRIKEN.views.wert(byIdFn(k.links)) ? 'hoch' : 'tief';
+    const a = g.aktiv;
+    hlTipp(g, zaehler[a] < ziel[a] ? richtig : falsch(richtig), byIdFn);
+    if (g.letzte.ok) zaehler[a] += 1;
+    if (letzter !== -1 && a !== letzter) assert.ok(g.spieler[letzter].aus, 'Wechsel nur nach Fehler');
+    letzter = a;
+    hlWeiter(g, pool, rnd);
+  }
+  assert.deepEqual(g.spieler.map((s) => s.serie), ziel);
+  const r = hlRangliste(g);
+  assert.equal(r[0].name, 'B');
+  assert.equal(r[0].platz, 1);
+});
+
+test('Higher Lower: Abwechseln – nach jedem Tipp der Nächste, Fehler scheidet aus', () => {
+  const { st, aktive } = spiele('abwechseln', (i, r) => (i === 1 ? falsch(r) : r), 3);
+  // Zug 0: A, Zug 1: B (Fehler -> B raus), danach nur noch A und C abwechselnd
+  assert.deepEqual(aktive.slice(0, 5), [0, 1, 2, 0, 2]);
+  assert.ok(st.spieler[1].aus);
+  assert.equal(st.ketten.length, 3, 'jeder Spieler hat eigene Karten');
+});
+
+test('Higher Lower: Teamwork – gemeinsame Karten, erster Fehler beendet das Spiel', () => {
+  const { st, aktive } = spiele('teamwork', (i, r) => (i === 6 ? falsch(r) : r), 3);
+  assert.deepEqual(aktive, [0, 1, 2, 0, 1, 2, 0]);
+  assert.ok(st.ende);
+  assert.equal(st.ketten.length, 1);
+  assert.equal(st.spieler.reduce((n, s) => n + s.serie, 0), 6);
+});
+
+test('Higher Lower: gespeicherter Stand lädt, Kaputtes nicht', () => {
+  const { st } = spiele('serie', (i, r) => (i === 2 ? falsch(r) : r), 2);
+  const stand = JSON.parse(JSON.stringify(st));
+  assert.ok(hlLade(stand));
+  assert.equal(hlLade(null), null);
+  assert.equal(hlLade({ ...stand, v: 99 }), null);
+  assert.equal(hlLade({ ...stand, art: 'unbekannt' }), null);
+  assert.equal(hlLade({ ...stand, ketten: [] }), null);
+});
+
+test('Streaming ranken: Pool ab 2000 mit mindestens 10 Mio Aufrufen', () => {
+  const pool = streamPool(songs);
+  assert.ok(pool.length >= 100 && pool.length <= 200, String(pool.length));
+  assert.ok(pool.every((s) => s.jahr >= 2000 && s.yt_views >= 10_000_000 && s.jahr !== 2020));
+  assert.ok(streamPool(songs, 5_000_000).length > pool.length);
+});
+
+test('Streaming ranken: Lücke nach Aufrufen, gleiche Werte zählen richtig', () => {
+  const leiste = [{ yt_views: 10 }, { yt_views: 20 }, { yt_views: 20 }, { yt_views: 50 }];
+  assert.ok(streamFits(leiste, 0, 5));
+  assert.ok(!streamFits(leiste, 0, 15));
+  assert.ok(streamFits(leiste, 1, 15));
+  assert.ok(streamFits(leiste, 1, 20) && streamFits(leiste, 2, 20) && streamFits(leiste, 3, 20));
+  assert.ok(streamFits(leiste, 4, 99));
+  assert.ok(!streamFits(leiste, 4, 30));
+});
+
+test('Streaming ranken: Spielablauf mit Sieger nach voller Runde', () => {
+  const pool = streamPool(songs);
+  const rnd = seedRnd(2);
+  const st = streamStart({ names: ['A', 'B'], ziel: 3 }, pool, rnd);
+  assert.ok(st.spieler.every((s) => s.leiste.length === 1));
+  streamZiehe(st);
+  let zuege = 0;
+  while (!st.ende && zuege++ < 200) {
+    const sp = st.spieler[st.aktiv];
+    const leiste = sp.leiste.map(byIdFn);
+    const song = byIdFn(st.cur);
+    // A legt immer richtig, B immer in die erste Lücke (meist falsch)
+    const gap = st.aktiv === 0 ? leiste.filter((s) => s.yt_views <= song.yt_views).length : 0;
+    streamLege(st, gap, byIdFn);
+    if (st.aktiv === 0) assert.ok(st.letzte.ok);
+    streamWeiter(st);
+  }
+  assert.ok(st.ende);
+  assert.equal(st.spieler[0].leiste.length, 3);
+  const sortiert = st.spieler[0].leiste.map(byIdFn).map((s) => s.yt_views);
+  assert.deepEqual(sortiert, [...sortiert].sort((a, b) => a - b));
+  assert.equal(streamRangliste(st)[0].name, 'A');
+  assert.ok(streamLade(JSON.parse(JSON.stringify(st))));
+  assert.equal(streamLade({ v: 1, spieler: [] }), null);
+});
