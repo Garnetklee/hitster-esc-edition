@@ -749,6 +749,8 @@ html, body { overflow-x: clip; }
 .st-aktuell { max-width: 420px; margin: 0 auto 14px; }
 .st-aktuell .hl-card { min-height: 0; }
 .st-leiste { margin-top: 14px; }
+.st-musik { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; }
+.st-musik .vol-row { margin: 0; flex: 1 1 160px; }
 .st-achse { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; margin-bottom: 6px; }
 .st-reihe { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; justify-content: center; }
 .st-card {

@@ -804,6 +804,7 @@ function showScreen(name) {
   $('#tab-play').classList.toggle('on', !MODE_SCREENS.includes(name));
   for (const m of MODE_SCREENS) $(`#tab-${m}`).classList.toggle('on', name === m);
   if (name !== 'end') $('#end-audio').pause();
+  if (name !== 'stream') bgAudio.stop();
   if (name !== 'stats') heatTipHide();
   document.body.classList.toggle('on-setup', name === 'setup');
   window.scrollTo(0, 0);
@@ -1628,20 +1629,44 @@ function initTest() {
 }
 
 /* ------------------------------------------------------------------ Player-Ereignisse */
-/** Lautstärkeregler im Spiel und im Musikplayer, beide zeigen denselben Wert. */
+/** Lautstärkeregler (auch später gezeichnete wie in Streaming ranken), alle zeigen denselben Wert. */
 function initVolume() {
   const v = store.get(KEY_VOLUME, 100);
   YTP.setVolume(v);
-  for (const r of $$('input.vol')) {
-    r.value = v;
-    r.addEventListener('input', () => {
-      const n = Number(r.value);
-      YTP.setVolume(n);
-      for (const o of $$('input.vol')) if (o !== r) o.value = n;
-      store.set(KEY_VOLUME, n);
-    });
-  }
+  for (const r of $$('input.vol')) r.value = v;
+  document.addEventListener('input', (e) => {
+    const r = e.target;
+    if (!r.matches || !r.matches('input.vol')) return;
+    const n = Number(r.value);
+    YTP.setVolume(n);
+    for (const o of $$('input.vol')) if (o !== r) o.value = n;
+    store.set(KEY_VOLUME, n);
+  });
 }
+
+/* ------------------------------------------------------------------ Hintergrundmusik für Streaming ranken */
+let bgSong = null; // Lied, das gerade als Hintergrundmusik läuft
+let bgStatus = () => {}; // meldet modi.js, ob die Musik läuft
+
+const bgAudio = {
+  play(song) {
+    bgSong = song;
+    hidePlayer();
+    if (!song || !song.youtube_id) { YTP.stop(); bgStatus(false); return; }
+    YTP.load(song.youtube_id, songStart(song, true), true);
+  },
+  toggle() { if (bgSong) YTP.toggle(); },
+  stop() {
+    if (!bgSong) return;
+    bgSong = null;
+    hidePlayer();
+    YTP.stop();
+    bgStatus(false);
+  },
+  showPlayer() { if (bgSong) showPlayer('ad'); },
+  volume() { return store.get(KEY_VOLUME, 100); },
+  onStatus(fn) { bgStatus = fn; },
+};
 
 function initAudio() {
   if (!DATA.songs.some((s) => s.youtube_id)) return; // nichts abzuspielen
@@ -1651,6 +1676,7 @@ function initAudio() {
       // Werbung vorbei, das Lied lädt oder startet: Player sofort verstecken, damit nichts verraten wird
       if (playerShown && playerMode === 'ad' && !shownWhilePlaying && (st === YTP.State.PLAYING || st === YTP.State.BUFFERING)) hidePlayer();
       if (st !== YTP.State.PLAYING) shownWhilePlaying = false;
+      if (bgSong) { bgStatus(st === YTP.State.PLAYING || st === YTP.State.BUFFERING); return; }
       if (music) { musicState(st); return; }
       if (st === YTP.State.PLAYING) clockStart();
       if (st === YTP.State.PLAYING) setAudioStatus('playing');
@@ -1665,6 +1691,7 @@ function initAudio() {
       }
     },
     onError(code, cur) {
+      if (bgSong) { bgStatus(false); return; } // Hintergrundmusik: ohne Musik weiterspielen
       if (music) { musicError(code); return; }
       if (testSong) { toast(`Video nicht abspielbar (Fehler ${code}).`, 5000); return; }
       if (!state || !state.cur) return;
@@ -1674,9 +1701,9 @@ function initAudio() {
       console.warn('YouTube-Fehler', code, song.id, song.youtube_id);
       if (state.cur.phase === 'listen') replaceSong(`Video nicht abspielbar (Fehler ${code}) – neues Lied.`);
     },
-    onStalled(st, cur) { if (music) musicStall(); else handleStall(st, cur); },
-    onRetry(attempt) { loadAttempt = attempt; setAudioStatus('loading'); },
-    onBlocked(cur) { if (music) musicStall(); else handleBlocked(cur); },
+    onStalled(st, cur) { if (bgSong) bgStatus(false); else if (music) musicStall(); else handleStall(st, cur); },
+    onRetry(attempt) { if (bgSong) return; loadAttempt = attempt; setAudioStatus('loading'); },
+    onBlocked(cur) { if (bgSong) bgStatus(false); else if (music) musicStall(); else handleBlocked(cur); },
     onApiFail() { toast('YouTube-Player konnte nicht geladen werden (offline?).', 5000); },
   });
 }
@@ -2009,7 +2036,7 @@ async function main() {
   $('#loading').hidden = true;
   $('#setup').hidden = false;
   initSetup();
-  initModi(DATA.songs);
+  initModi(DATA.songs, bgAudio);
   initAudio();
   limitLast = Date.now();
   setInterval(limitTick, 250);

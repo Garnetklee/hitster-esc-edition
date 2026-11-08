@@ -29,7 +29,11 @@ const flag = (iso) => (!iso || iso === 'YU' || iso === 'CS'
   ? `<span class="flag flag-txt">${esc(iso || '?')}</span>`
   : `<img class="flag" src="https://flagcdn.com/w80/${esc(iso.toLowerCase())}.png" alt="${esc(iso)}" data-iso="${esc(iso)}" loading="lazy">`);
 
-export function initModi(songs) {
+// Hintergrundmusik aus app.js: play(song), toggle(), stop(), showPlayer(), volume(), onStatus(fn)
+let audio = { play() {}, toggle() {}, stop() {}, showPlayer() {}, volume: () => 100, onStatus() {} };
+
+export function initModi(songs, bg) {
+  if (bg) audio = bg;
   SONGS = songs;
   BY_ID = new Map(songs.map((s) => [s.id, s]));
   hl.init();
@@ -335,9 +339,12 @@ const st = {
   view: 'setup',
   s: null,
   game: null,
+  spielt: null, // Id des Lieds, das als Hintergrundmusik geladen ist
+  laeuft: false,
 
   init() {
     this.root = $('#screen-stream');
+    audio.onStatus((an) => { this.laeuft = an; this.musikKnopf(); });
     this.s = { names: ['Spieler 1', 'Spieler 2'], ziel: 7, ...(store.get(KEY.stSettings) || {}) };
     if (!Array.isArray(this.s.names) || !this.s.names.length) this.s.names = ['Spieler 1', 'Spieler 2'];
     if (![5, 7, 10].includes(this.s.ziel)) this.s.ziel = 7;
@@ -354,6 +361,7 @@ const st = {
 
   show() {
     this.view = this.game && !this.game.ende ? 'game' : (this.view === 'end' ? 'end' : 'setup');
+    this.spielt = null; // nach dem Reiterwechsel ist die Musik aus, das aktuelle Lied startet neu
     this.render();
   },
 
@@ -373,6 +381,8 @@ const st = {
     else if (act === 'st-discard') { this.game = null; this.speichern(); this.render(); }
     else if (act === 'st-gap') this.lege(+b.dataset.gap);
     else if (act === 'st-weiter') this.weiter();
+    else if (act === 'st-musik') this.musikUmschalten();
+    else if (act === 'st-player') audio.showPlayer();
     else if (act === 'st-setup') { this.view = 'setup'; this.game = null; this.speichern(); this.render(); }
     else if (act === 'st-nochmal') this.start();
     else if (act === 'st-abbruch') {
@@ -412,7 +422,41 @@ const st = {
     if (this.view === 'game' && this.game) this.root.innerHTML = this.spielHTML();
     else if (this.view === 'end' && this.game) this.root.innerHTML = this.endeHTML();
     else this.root.innerHTML = this.setupHTML();
+    this.musik();
     window.scrollTo(0, 0);
+  },
+
+  /** Hintergrundmusik: jede neue Karte startet ihr Lied ab dem Refrain, im Setup ist Ruhe. */
+  musik() {
+    if (this.view === 'end') return; // das letzte Lied läuft bei der Siegerehrung weiter
+    const id = this.view === 'game' && this.game ? this.game.cur : null;
+    if (!id) { this.spielt = null; audio.stop(); return; }
+    if (id === this.spielt) { this.musikKnopf(); return; }
+    this.spielt = id;
+    if (this.s.musik === false) { audio.stop(); this.musikKnopf(); return; }
+    audio.play(byId(id));
+  },
+
+  musikUmschalten() {
+    if (this.laeuft) { audio.toggle(); this.s.musik = false; }
+    else {
+      this.s.musik = true;
+      if (this.spielt) audio.play(byId(this.spielt));
+    }
+    store.set(KEY.stSettings, this.s);
+  },
+
+  musikKnopf() {
+    const b = $('[data-act="st-musik"]', this.root);
+    if (b) b.textContent = this.laeuft ? '⏸ Musik aus' : '▶ Musik an';
+  },
+
+  musikHTML() {
+    return `<div class="st-musik">
+      <button class="btn small ghost" data-act="st-musik">${this.laeuft ? '⏸ Musik aus' : '▶ Musik an'}</button>
+      <label class="vol-row"><span aria-hidden="true">🔈</span><input type="range" class="vol" min="0" max="100" step="5" value="${audio.volume()}" aria-label="Lautstärke"><span aria-hidden="true">🔊</span></label>
+      <button class="btn small ghost" data-act="st-player" title="Bei Werbung: Player einblenden und überspringen">📺 Player</button>
+    </div>`;
   },
 
   setupHTML() {
@@ -430,7 +474,7 @@ const st = {
       <div class="panel"><h2>Spieler</h2>${namenHTML(s.names, 'st')}</div>
       <div class="panel"><h2>Ziel: Karten in der Leiste</h2>
         ${chipsHTML('st-ziel', [[5, '5 Karten'], [7, '7 Karten'], [10, '10 Karten']], s.ziel)}
-        <div class="muted small hint">Jeder startet mit einer Karte. Ihr seht Interpret und Titel und legt das Lied dorthin, wo es nach Aufrufen hingehört. Richtig: Die Karte bleibt. Falsch: Sie fliegt raus. Gewonnen hat, wer nach einer vollen Runde die meisten Karten hat.</div></div>
+        <div class="muted small hint">Jeder startet mit einer Karte. Ihr seht Interpret und Titel und legt das Lied dorthin, wo es nach Aufrufen hingehört. Dazu läuft das Lied im Hintergrund, wenn möglich ab dem Refrain. Richtig: Die Karte bleibt. Falsch: Sie fliegt raus. Gewonnen hat, wer nach einer vollen Runde die meisten Karten hat.</div></div>
       <div class="row"><button class="btn primary big" data-act="st-start">Spiel starten</button></div>`;
   },
 
@@ -472,7 +516,8 @@ const st = {
         <div class="hl-artist">${esc(song.interpret)}</div><div class="hl-title">${esc(song.titel)}</div>
         <div class="hl-wert ${auf ? '' : 'hl-fragezeichen'}">${auf ? fmtViews(song.yt_views) : '? Aufrufe'}</div></div></div>
       ${ergebnis}
-      ${this.leisteHTML(sp, !auf, auf && l.ok ? l.id : null)}`;
+      ${this.leisteHTML(sp, !auf, auf && l.ok ? l.id : null)}
+      ${this.musikHTML()}`;
   },
 
   endeHTML() {

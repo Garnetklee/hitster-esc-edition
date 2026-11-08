@@ -1,4 +1,7 @@
 ==================== Erledigt ====================
+✅ erledigt (2026-11-08 01:12) – Streaming ranken auch mit Music abspielen so wie bei Hitster auch. Soweit möglich die Refrain ausschnitte der Lieder verwenden. Die Musik soll einfach im Hintergrund für gute Stimmung sorgen
+   → Jede neue Karte startet ihr Lied als Hintergrundmusik, wenn bekannt ab dem Refrain (83 von 127 Liedern, die übrigen ab dem normalen Start), und es läuft weiter, bis die nächste Karte kommt. Unter der Leiste: ⏸/▶ Musik, Lautstärke und 📺 Player für Werbung. Beim Wechsel des Reiters stoppt die Musik. Selbst testen: Autoplay und Werbung am Handy.
+
 ✅ erledigt (2026-11-08 01:06) – ganz neuer Spielmodus higher lower. mit Aufrufen, Platzierung, Punkte. Oben in der Leiste neben Spiel, Statistik als eigenen Seite. "Spiel" umbenennen zu "Hitster"
 orientiere dich am echten higher lower und baue erstmal frei eine eigene Version davon mit Basic Einstellmöglichkeiten. Liederpoolauswahl von unserem Hitster übernehmen und eventuell andere Einstellungen.
    → Neuer Reiter „Higher Lower“, der Reiter „Spiel“ heißt jetzt „Hitster“. Drei Spielarten (Serie nacheinander, Abwechseln mit eigenen Karten, Teamwork), Vergleich nach YouTube-Aufrufen, Platzierung oder Punkten im Finale, Lieder-Pool und Zeitraum wie bei Hitster. Der Spielstand bleibt beim Wechseln der Reiter erhalten.
