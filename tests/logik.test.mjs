@@ -6,6 +6,7 @@ import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue, searchSongs,
   overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
+  canStillCatchUp, maxTurnPoints, podiumHeight, volumeLocked,
 } from '../app/js/data.js';
 import {
   DEFAULT_RULES, PRESETS, presetById, presetMatches, matchingPreset, migrateSettings, migrateState, SETTINGS_VERSION,
@@ -22,6 +23,53 @@ const songs = raw.songs.map((s) => ({
 }));
 const byId = (id) => songs.find((s) => s.id === id);
 const FILTER = { mode: 'alle', from: 1956, to: 2026, countries: [] };
+
+test('Halbfinal-Aus ist schlechter als jeder Finalplatz', () => {
+  // Ungarn 2015: Finale Platz 20 von 27, Schweiz 2007: Halbfinale Platz 20 von 28
+  assert.ok(relRank(byId('2007-CH')) > relRank(byId('2015-HU')));
+  const raus = songs.filter((s) => s.runde_ende !== 'Finale' && relRank(s) !== null);
+  const finale = songs.filter((s) => s.runde_ende === 'Finale' && relRank(s) !== null);
+  assert.ok(raus.length > 300);
+  assert.ok(Math.min(...raus.map(relRank)) > Math.max(...finale.map(relRank)));
+});
+
+test('letzte Runde läuft nur weiter, wenn noch jemand aufholen kann', () => {
+  const sp = (karten, tokens = 2, bonusCards = 0) => ({ timeline: Array(karten).fill('x'), bonusCards, tokens });
+  const R = { ...DEFAULT_RULES };
+  // A hat 10, B ist als Nächster dran und hat 9: Gleichstand ist noch möglich
+  assert.equal(canStillCatchUp([sp(10), sp(9)], 0, 0, R), true);
+  assert.equal(canStillCatchUp([sp(10), sp(8)], 0, 0, R), false);
+  // B kann nicht mehr, C hinter ihm aber schon: Die Runde läuft weiter
+  assert.equal(canStillCatchUp([sp(10), sp(5), sp(9)], 0, 0, R), true);
+  // Nach Cs Zug ist die Runde um, A war Startspieler
+  assert.equal(canStillCatchUp([sp(10), sp(5), sp(9)], 2, 0, R), false);
+  // Wer vor dem Führenden schon dran war, zählt nicht: B erreicht das Ziel, nur C ist noch dran
+  assert.equal(canStillCatchUp([sp(9), sp(10), sp(5)], 1, 0, R), false);
+  // Bonuskarte aus Tokens zählt mit: 8 Karten + Zug + Umwandlung erreichen 10
+  const bonus = { ...R, convert: true, convertAt: 5, exact: 1 };
+  assert.equal(maxTurnPoints(bonus), 1);
+  assert.equal(canStillCatchUp([sp(10), sp(8, 4)], 0, 0, bonus), true);
+  assert.equal(canStillCatchUp([sp(10), sp(8, 3)], 0, 0, bonus), false);
+  // Klauen: A (9) war schon dran und kann im Zug von C noch eine Karte holen
+  const klauen = { ...R, steal: true };
+  assert.equal(canStillCatchUp([sp(9), sp(10), sp(5)], 1, 0, klauen), true);
+  assert.equal(canStillCatchUp([sp(9, 0), sp(10), sp(5)], 1, 0, klauen), false);
+});
+
+test('Siegerehrung: Balken proportional zu den Karten', () => {
+  assert.equal(podiumHeight(10, 10), 160);
+  assert.equal(podiumHeight(5, 10), 80);
+  assert.equal(podiumHeight(1, 10), 44); // Platzzahl muss hineinpassen
+  assert.equal(podiumHeight(0, 0), 44);
+});
+
+test('Lautstärkeregler: nur iPhone und iPad gelten als gesperrt', () => {
+  assert.equal(volumeLocked('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 'iPhone', 5), true);
+  assert.equal(volumeLocked('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'MacIntel', 5), true); // iPadOS
+  assert.equal(volumeLocked('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'MacIntel', 0), false);
+  assert.equal(volumeLocked('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Win32', 0), false);
+  assert.equal(volumeLocked('Mozilla/5.0 (Linux; Android 14)', 'Linux armv8l', 5), false);
+});
 
 test('freie Platzierung: exakt 1, bis 2 daneben ½, sonst 0', () => {
   const lena = byId('2010-DE'); // Platz 1 im Finale

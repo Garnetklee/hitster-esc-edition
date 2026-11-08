@@ -36,6 +36,7 @@ export function initModi(songs, bg) {
   if (bg) audio = bg;
   SONGS = songs;
   BY_ID = new Map(songs.map((s) => [s.id, s]));
+  audio.onStatus((an) => { for (const m of [hl, st]) { m.laeuft = an; m.musikKnopf(); } });
   hl.init();
   st.init();
 }
@@ -88,6 +89,9 @@ const hl = {
   pool: [],
   busy: false,
   rekord: {},
+  prefix: 'hl',
+  einstKey: KEY.hlSettings,
+  liedId() { const g = this.game; return g.ketten[g.art === 'abwechseln' ? g.aktiv : 0].rechts; },
 
   init() {
     this.root = $('#screen-hl');
@@ -117,6 +121,7 @@ const hl = {
     // Laufendes, nicht beendetes Spiel bleibt offen, sonst Setup
     this.view = this.game && !this.game.ende ? 'game' : (this.view === 'end' ? 'end' : 'setup');
     if (this.view === 'game') this.pool = this.makePool();
+    this.spielt = null; // nach dem Reiterwechsel ist die Musik aus, das aktuelle Lied startet neu
     this.render();
   },
 
@@ -150,6 +155,8 @@ const hl = {
     else if (act === 'hl-discard') { this.game = null; this.speichern(); this.render(); }
     else if (act === 'hl-tipp') this.tipp(b.dataset.tipp);
     else if (act === 'hl-weiter') this.weiter();
+    else if (act === 'hl-musik') this.musikUmschalten();
+    else if (act === 'hl-player') audio.showPlayer();
     else if (act === 'hl-setup') { this.view = 'setup'; this.game = null; this.speichern(); this.render(); }
     else if (act === 'hl-nochmal') this.start();
     else if (act === 'hl-abbruch') {
@@ -224,6 +231,7 @@ const hl = {
     if (this.view === 'game' && this.game) this.root.innerHTML = this.spielHTML();
     else if (this.view === 'end' && this.game) this.root.innerHTML = this.endeHTML();
     else this.root.innerHTML = this.setupHTML();
+    this.musik();
     window.scrollTo(0, 0);
   },
 
@@ -312,7 +320,8 @@ const hl = {
         <div class="hl-vs">VS</div>
         ${auf ? this.kartenHTML(rechts, m, { label: 'rechts' }) : this.kartenHTML(rechts, m, { verdeckt: true })}
       </div>
-      <div class="hl-unten">${unten}</div>`;
+      <div class="hl-unten">${unten}</div>
+      ${this.musikHTML()}`;
   },
 
   endeHTML() {
@@ -339,12 +348,12 @@ const st = {
   view: 'setup',
   s: null,
   game: null,
-  spielt: null, // Id des Lieds, das als Hintergrundmusik geladen ist
-  laeuft: false,
+  prefix: 'st',
+  einstKey: KEY.stSettings,
+  liedId() { return this.game.cur; },
 
   init() {
     this.root = $('#screen-stream');
-    audio.onStatus((an) => { this.laeuft = an; this.musikKnopf(); });
     this.s = { names: ['Spieler 1', 'Spieler 2'], ziel: 7, ...(store.get(KEY.stSettings) || {}) };
     if (!Array.isArray(this.s.names) || !this.s.names.length) this.s.names = ['Spieler 1', 'Spieler 2'];
     if (![5, 7, 10].includes(this.s.ziel)) this.s.ziel = 7;
@@ -426,39 +435,6 @@ const st = {
     window.scrollTo(0, 0);
   },
 
-  /** Hintergrundmusik: jede neue Karte startet ihr Lied ab dem Refrain, im Setup ist Ruhe. */
-  musik() {
-    if (this.view === 'end') return; // das letzte Lied läuft bei der Siegerehrung weiter
-    const id = this.view === 'game' && this.game ? this.game.cur : null;
-    if (!id) { this.spielt = null; audio.stop(); return; }
-    if (id === this.spielt) { this.musikKnopf(); return; }
-    this.spielt = id;
-    if (this.s.musik === false) { audio.stop(); this.musikKnopf(); return; }
-    audio.play(byId(id));
-  },
-
-  musikUmschalten() {
-    if (this.laeuft) { audio.toggle(); this.s.musik = false; }
-    else {
-      this.s.musik = true;
-      if (this.spielt) audio.play(byId(this.spielt));
-    }
-    store.set(KEY.stSettings, this.s);
-  },
-
-  musikKnopf() {
-    const b = $('[data-act="st-musik"]', this.root);
-    if (b) b.textContent = this.laeuft ? '⏸ Musik aus' : '▶ Musik an';
-  },
-
-  musikHTML() {
-    return `<div class="st-musik">
-      <button class="btn small ghost" data-act="st-musik">${this.laeuft ? '⏸ Musik aus' : '▶ Musik an'}</button>
-      <label class="vol-row"><span aria-hidden="true">🔈</span><input type="range" class="vol" min="0" max="100" step="5" value="${audio.volume()}" aria-label="Lautstärke"><span aria-hidden="true">🔊</span></label>
-      <button class="btn small ghost" data-act="st-player" title="Bei Werbung: Player einblenden und überspringen">📺 Player</button>
-    </div>`;
-  },
-
   setupHTML() {
     const s = this.s;
     const n = this.pool().length;
@@ -509,6 +485,7 @@ const st = {
       : '<div class="muted small center">Tippe auf ＋, wo das Lied in der Leiste hingehört.</div>';
     return `<div class="hl-kopf"><div class="mscoreboard">${board}</div>
         <div class="hl-status"><span class="muted small">Streaming ranken · Ziel ${g.ziel} Karten</span><button class="btn small ghost" data-act="st-abbruch">Abbrechen</button></div></div>
+      <div class="muted small center st-regel">Nur Beiträge ab ${STREAM_AB_JAHR} mit mindestens ${fmtViews(g.minViews ?? STREAM_MIN_VIEWS)} Aufrufen</div>
       <div class="hl-turn"><b>${esc(sp.name)}</b> ist dran</div>
       <div class="st-aktuell"><div class="hl-card ${auf ? '' : 'verdeckt'}">
         <div class="hl-year">${song.jahr}</div>
@@ -530,3 +507,43 @@ const st = {
   },
 };
 
+/* ================================================================== Hintergrundmusik beider Modi */
+const musikBaustein = {
+  spielt: null, // Id des Lieds, das als Hintergrundmusik geladen ist
+  laeuft: false,
+
+  /** Jede neue Karte startet ihr Lied ab dem Refrain, im Setup ist Ruhe. */
+  musik() {
+    if (this.view === 'end') return; // das letzte Lied läuft bei der Siegerehrung weiter
+    const id = this.view === 'game' && this.game ? this.liedId() : null;
+    if (!id) { this.spielt = null; audio.stop(); return; }
+    if (id === this.spielt) { this.musikKnopf(); return; }
+    this.spielt = id;
+    if (this.s.musik === false) { audio.stop(); this.musikKnopf(); return; }
+    audio.play(byId(id));
+  },
+
+  musikUmschalten() {
+    if (this.laeuft) { audio.toggle(); this.s.musik = false; }
+    else {
+      this.s.musik = true;
+      if (this.spielt) audio.play(byId(this.spielt));
+    }
+    store.set(this.einstKey, this.s);
+  },
+
+  musikKnopf() {
+    const b = $(`[data-act="${this.prefix}-musik"]`, this.root);
+    if (b) b.textContent = this.laeuft ? '⏸ Musik aus' : '▶ Musik an';
+  },
+
+  musikHTML() {
+    return `<div class="st-musik">
+      <button class="btn small ghost" data-act="${this.prefix}-musik">${this.laeuft ? '⏸ Musik aus' : '▶ Musik an'}</button>
+      <label class="vol-row"><span aria-hidden="true">🔈</span><input type="range" class="vol" min="0" max="100" step="5" value="${audio.volume()}" aria-label="Lautstärke"><span aria-hidden="true">🔊</span></label>
+      <button class="btn small ghost" data-act="${this.prefix}-player" title="Bei Werbung: Player einblenden und überspringen">📺 Player</button>
+    </div>`;
+  },
+};
+Object.assign(hl, musikBaustein);
+Object.assign(st, musikBaustein);

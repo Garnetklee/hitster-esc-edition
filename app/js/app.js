@@ -4,6 +4,7 @@ import {
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
   overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
+  canStillCatchUp, podiumHeight, volumeLocked,
 } from './data.js';
 import * as YTP from './player.js';
 import {
@@ -301,7 +302,7 @@ function applySettings(st) {
   $('#chk-time').checked = !!st.trackTime;
   $('#chk-endfull').checked = !!st.endFull;
   $('#chk-refrain').checked = !!st.refrain;
-  setup.handicaps = (st.handicaps || []).slice(0, setup.names.length);
+  setup.handicaps = []; // Handicaps gelten nur für ein Spiel, neue starten mit der allgemeinen Auswahl
 }
 
 function initSetup() {
@@ -692,10 +693,12 @@ function reveal() {
 
 const nextPlayer = () => (state.active + 1) % state.players.length;
 const targetReached = () => state.players.some((p) => score(p) >= state.settings.target);
+/** Spielende: Ziel erreicht und in dieser Runde kann niemand mehr aufholen. */
+const gameDecided = () => targetReached() && !canStillCatchUp(state.players, state.active, state.first, rules());
 
 function nextTurn() {
   const next = nextPlayer();
-  if (next === state.first && targetReached()) { endGame(); return; }
+  if (gameDecided()) { endGame(); return; }
   state.active = next;
   state.round += next === state.first ? 1 : 0;
   startTurn();
@@ -731,11 +734,12 @@ function endGame() {
   }
   $('#end-heart').style.display = solo ? '' : 'none';
   const podium = [ranking[1], ranking[0], ranking[2]].filter(Boolean);
+  const topCards = ranking[0].sc;
   $('#end-podium').innerHTML = solo ? '' : podium.map((r) =>
     `<div class="podium-step rank-${r.rank}">
       <div class="podium-name">${r.rank === 1 ? '👑 ' : ''}${esc(r.name)}</div>
       <div class="podium-score">${r.sc} ${r.sc === 1 ? 'Karte' : 'Karten'} · ${tokenLabel(r.tokens)}</div>
-      <div class="podium-block">${r.rank}</div>
+      <div class="podium-block" style="height:${podiumHeight(r.sc, topCards)}px">${r.rank}</div>
     </div>`).join('');
   $('#end-ranking').innerHTML = solo ? '' : `<ol class="ranking">${ranking.map((r) =>
     `<li value="${r.rank}"><span class="r-name">${esc(r.name)}</span><span class="r-cards">${cardsText(r)}</span><span class="r-tokens">${tokenLabel(r.tokens)}</span></li>`).join('')}</ol>`;
@@ -809,7 +813,7 @@ function showScreen(name) {
   $('#tab-play').classList.toggle('on', !MODE_SCREENS.includes(name));
   for (const m of MODE_SCREENS) $(`#tab-${m}`).classList.toggle('on', name === m);
   if (name !== 'end') $('#end-audio').pause();
-  if (name !== 'stream') bgAudio.stop();
+  if (name !== 'stream' && name !== 'hl') bgAudio.stop();
   if (name !== 'stats') heatTipHide();
   document.body.classList.toggle('on-setup', name === 'setup');
   window.scrollTo(0, 0);
@@ -1182,7 +1186,7 @@ function renderReveal() {
   if (r.gain.tokens) lines.push(`<div class="line ok">+${tokenLabel(r.gain.tokens)} für ${esc(p.name)}</div>`);
   if (r.gain.cards) lines.push(`<div class="line ok big-line">+${r.gain.cards} Bonuskarte für ${esc(p.name)}!</div>`);
   if (state.settings.trackTime) lines.push(`<div class="line">⏱ ${fmtDuration(c.elapsed)} für dieses Lied · ${esc(p.name)} gesamt ${fmtDuration(p.time)}</div>`);
-  const gameOver = targetReached() && nextPlayer() === state.first;
+  const gameOver = gameDecided();
   const nextName = state.players[nextPlayer()].name;
   const hasOwn = r.guess && (R.exact > 0 || R.country !== 'off' || R.place !== 'off' || R.artist || R.title);
   const yt = song.youtube_id ? youtubeLink(song.youtube_id) : null;
@@ -1435,6 +1439,7 @@ function showPlayer(mode = 'ad') {
   const wrap = $('#yt-wrap');
   wrap.classList.add('show');
   wrap.classList.toggle('masked', mode === 'ad');
+  wrap.classList.toggle('hint-bar', mode === 'hint');
   wrap.removeAttribute('aria-hidden');
   $('#yt-bar-text').textContent = mode === 'hint'
     ? 'Hinweis: Das Video bleibt sichtbar, bis du es schließt.'
@@ -1446,7 +1451,7 @@ function showPlayer(mode = 'ad') {
 function hidePlayer() {
   playerShown = false;
   const wrap = $('#yt-wrap');
-  wrap.classList.remove('show', 'masked');
+  wrap.classList.remove('show', 'masked', 'hint-bar');
   wrap.setAttribute('aria-hidden', 'true');
   $('#yt-bar').hidden = true;
 }
@@ -1650,6 +1655,7 @@ function initTest() {
 /* ------------------------------------------------------------------ Player-Ereignisse */
 /** Lautstärkeregler (auch später gezeichnete wie in Streaming ranken), alle zeigen denselben Wert. */
 function initVolume() {
+  document.documentElement.classList.toggle('no-volume', volumeLocked(navigator.userAgent, navigator.platform, navigator.maxTouchPoints));
   const v = store.get(KEY_VOLUME, 100);
   YTP.setVolume(v);
   for (const r of $$('input.vol')) r.value = v;
@@ -1663,7 +1669,7 @@ function initVolume() {
   });
 }
 
-/* ------------------------------------------------------------------ Hintergrundmusik für Streaming ranken */
+/* ------------------------------------------------------------------ Hintergrundmusik für Higher Lower und Streaming */
 let bgSong = null; // Lied, das gerade als Hintergrundmusik läuft
 let bgStatus = () => {}; // meldet modi.js, ob die Musik läuft
 

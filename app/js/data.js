@@ -125,10 +125,11 @@ export function sortedIndex(timeline, year) {
   return i;
 }
 
-/** Relative Platzierung (kleiner = besser) oder null. */
+/** Relative Platzierung (kleiner = besser) oder null. Wer nicht im Finale war, liegt hinter jedem Finalplatz. */
 export function relRank(s) {
   if (!s || s.platz === null || !s.teilnehmer || isCancelled(s)) return null;
-  return s.platz / s.teilnehmer;
+  const rel = s.platz / s.teilnehmer;
+  return s.runde_ende === 'Finale' ? rel : 1 + rel;
 }
 
 /** Vier Länder zum Raten: das richtige und drei, die im selben Jahr teilgenommen haben. */
@@ -176,6 +177,37 @@ export function applyTokens(p, n, r) {
     }
   }
   return { tokens: n, cards };
+}
+
+/** Höchstens erreichbare Tokens in einem Zug mit diesen Regeln. */
+export function maxTurnPoints(r) {
+  const half = [r.country !== 'off', r.artist, r.title].filter(Boolean).length;
+  return half * 0.5 + (r.place === 'free' ? 1 : r.place === 'neighbor' ? 0.5 : 0) + (r.exact > 0 ? 1 : 0);
+}
+
+/**
+ * Kann nach dem Zug von `active` in dieser Runde noch jemand zum Führenden aufschließen?
+ * Gleichstand zählt, dann entscheiden die Tokens. Beim Klauen reicht ein Fremdzug, sofern ein Token da ist.
+ */
+export function canStillCatchUp(players, active, first, rules) {
+  const cards = (p) => p.timeline.length + p.bonusCards;
+  const top = Math.max(...players.map(cards));
+  const rest = [];
+  for (let i = (active + 1) % players.length; i !== first; i = (i + 1) % players.length) rest.push(players[i]);
+  if (!rest.length) return false;
+  const maxGain = (p) => 1 + (rules.convert ? Math.floor((p.tokens + maxTurnPoints(rules)) / rules.convertAt) : 0);
+  return rest.some((p) => cards(p) + maxGain(p) >= top)
+    || (rules.steal && players.some((p) => cards(p) < top && cards(p) + 1 >= top && p.tokens >= 1));
+}
+
+/** Balkenhöhe der Siegerehrung in px: proportional zu den Karten, die Platzzahl muss aber hineinpassen. */
+export function podiumHeight(cards, top, max = 160, min = 44) {
+  return top > 0 ? Math.max(min, Math.round((max * cards) / top)) : min;
+}
+
+/** iPhone und iPad lassen Webseiten die Lautstärke nicht ändern, iPadOS gibt sich dabei als Mac aus. */
+export function volumeLocked(ua, platform, touchPoints) {
+  return /iP(hone|ad|od)/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
 }
 
 export const skipCost = (p) => (p.freeSkips > 0 ? 0 : 1);

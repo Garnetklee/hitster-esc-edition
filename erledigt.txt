@@ -1,4 +1,32 @@
 ==================== Erledigt ====================
+✅ erledigt (2026-11-08 14:12) – Hitster: Intro kürzen
+Luxemburg 1978 (ab 85s erst starten)
+   → Startet jetzt bei 85 s (Eintrag in overrides.csv).
+
+✅ erledigt (2026-11-08 14:12) – Hitster: Eigener Lautstärke Regler hat keine Auswirkung
+   → Am PC wirkt der Regler (geprüft, YouTube meldet 100 → 30). Auf iPhone und iPad sperrt Apple die Lautstärke für Webseiten, dort ist der Regler jetzt ausgeblendet. Bitte am iPhone prüfen.
+
+✅ erledigt (2026-11-08 14:12) – Hitster: Ungarn 2015 vs Schweiz 2007: ich habe gesagt Schweiz wäre schlechter, aber wurde als falsch markiert. Ausgeschieden im Halbfinale soll schlechter sein als jede Finalplatzierungen
+   → Beiträge ohne Finale liegen beim Tipp „besser oder schlechter“ jetzt hinter jedem Finalplatz, untereinander zählt weiter die relative Platzierung.
+
+✅ erledigt (2026-11-08 14:12) – Hitster: letzte Runde soll nur zuende gespielt werden, wenn jemand anderes noch aufholen könnte
+   → Nach jedem Zug wird geprüft, ob einer der noch folgenden Spieler aufschließen kann (Gleichstand zählt, mögliche Bonuskarte und Klauen sind eingerechnet). Wenn nicht, endet das Spiel sofort, sonst läuft die Runde normal weiter.
+
+✅ erledigt (2026-11-08 14:12) – Hitster: bei Hinweis Video anzeigen entweder oben den Bereich mit Titel usw mit schwarzem Balken überdecken, oder so einstellen, dass der Player nicht dauerhaft oben YT Channel, Titel usw anzeigt
+   → Schwarzer Balken (64 px) oben über Titel und Kanal, nur beim Hinweis-Video. Bitte am Handy prüfen, ob er den Titel ganz abdeckt.
+
+✅ erledigt (2026-11-08 14:12) – Hitster: Siegerehrung Balken Höhe soll echt berechnet werden
+   → Balken proportional zu den Karten, Platz 1 ist 160 px hoch. Mindesthöhe 44 px, damit die Platzzahl hineinpasst.
+
+✅ erledigt (2026-11-08 14:12) – Hitster: bei modifier als Standard dass der Liesepool so wie die allgemeine Auswahl eingestellt ist
+   → Der Handicap-Dialog zeigte die allgemeine Auswahl schon, aber Handicaps aus dem letzten Spiel blieben gespeichert. Jetzt startet jedes neue Spiel ohne Handicaps.
+
+✅ erledigt (2026-11-08 14:12) – Higher lower: Higher lower mit Musik (wie bei Hitster)
+   → Das Lied der neuen rechten Karte läuft im Hintergrund, wenn bekannt ab dem Refrain, mit Musik an/aus, Lautstärke und Player-Knopf wie bei Streaming.
+
+✅ erledigt (2026-11-08 14:12) – Streaming: Mindestaufrufe (unsere Regelung) als Hinweis (dauerhaft) anzeigen
+   → Im Spiel steht dauerhaft über dem Spielfeld, ab welchem Jahr und mit wie vielen Aufrufen Lieder dabei sind.
+
 ✅ erledigt (2026-11-08 01:12) – Streaming ranken auch mit Music abspielen so wie bei Hitster auch. Soweit möglich die Refrain ausschnitte der Lieder verwenden. Die Musik soll einfach im Hintergrund für gute Stimmung sorgen
    → Jede neue Karte startet ihr Lied als Hintergrundmusik, wenn bekannt ab dem Refrain (83 von 127 Liedern, die übrigen ab dem normalen Start), und es läuft weiter, bis die nächste Karte kommt. Unter der Leiste: ⏸/▶ Musik, Lautstärke und 📺 Player für Werbung. Beim Wechsel des Reiters stoppt die Musik. Selbst testen: Autoplay und Werbung am Handy.
 

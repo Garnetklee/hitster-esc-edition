@@ -55,6 +55,8 @@ h3 { margin: 18px 0 8px; font-size: 1rem; color: var(--muted); font-weight: 600;
 #yt-wrap.show iframe { width: 100%; height: 100%; display: block; }
 #yt-wrap.show.masked .yt-mask { display: block; position: absolute; background: #0b0618; }
 /* Nur ein kleines Fenster bleibt frei, das Titelbild rechts daneben bleibt verdeckt. Rechts und unten lassen Tipps durch, falls der Knopf teilweise dahinter liegt. */
+/* Hinweis-Video: YouTube blendet oben Titel und Kanal ein, das lässt sich nicht abschalten */
+#yt-wrap.show.hint-bar .yt-mask-hint { display: block; position: absolute; left: 0; right: 0; top: 0; height: 64px; background: #000; }
 #yt-wrap.show.masked .yt-mask-left { left: 0; top: 0; bottom: 0; right: 180px; }
 #yt-wrap.show.masked .yt-mask-top { right: 0; top: 0; width: 181px; bottom: 66px; }
 #yt-wrap.show.masked .yt-mask-right { right: 0; bottom: 0; width: 80px; height: 66px; pointer-events: none; }
@@ -337,9 +339,7 @@ body.dragging .gap.hover { width: calc(var(--card-w) * .7 + var(--overlap, 0px))
 .podium-name { font-weight: 800; overflow-wrap: anywhere; }
 .podium-score { font-size: .78rem; color: var(--muted); }
 .podium-block { display: grid; place-items: center; border-radius: 12px 12px 0 0; font-size: 2rem; font-weight: 900; border: 1px solid var(--line); background: rgba(138,92,255,.22); }
-.podium-step.rank-1 .podium-block { height: 130px; background: var(--grad); border: none; box-shadow: var(--glow-m); }
-.podium-step.rank-2 .podium-block { height: 92px; }
-.podium-step:not(.rank-1):not(.rank-2) .podium-block { height: 62px; }
+.podium-step.rank-1 .podium-block { background: var(--grad); border: none; box-shadow: var(--glow-m); }
 .end-cards h3:first-of-type { margin-top: 12px; }
 #end-tabs:empty { display: none; }
 #end-tabs .btn.on { border-color: var(--magenta); background: rgba(255,47,209,.16); box-shadow: var(--glow-m); }
@@ -594,6 +594,7 @@ html, body { overflow-x: clip; }
 .music-meta { font-size: .85rem; color: var(--muted); }
 .music-progress { display: flex; align-items: center; gap: 10px; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .vol-row { display: flex; align-items: center; gap: 8px; max-width: 320px; margin: 10px auto 0; font-size: .9rem; }
+.no-volume .vol-row { display: none; }
 .vol-row input { flex: 1 1 auto; min-width: 0; accent-color: var(--magenta); }
 .music-progress input { flex: 1 1 auto; min-width: 0; accent-color: var(--magenta); }
 .music-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 14px 0; }
