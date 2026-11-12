@@ -189,7 +189,9 @@
 
           <h3>Start im Lied</h3>
           <label class="switch"><input type="checkbox" id="chk-refrain"><span class="slider"></span>
-            <span>Am Refrain starten <small class="muted">(gilt für jeden Pool, Lieder ohne erkannten Refrain starten wie bisher)</small></span></label>
+            <span>Am Refrain starten <small class="muted">(Lieder ohne erkannten Refrain starten an einer geschätzten Stelle)</small></span></label>
+          <label class="switch" id="row-refrain-sicher" hidden><input type="checkbox" id="chk-refrain-sicher"><span class="slider"></span>
+            <span>Nur sichere Refrains <small class="muted">(Lieder ohne geprüften Refrain kommen nicht in den Pool)</small></span></label>
           <div class="muted small hint" id="refrain-hint"></div>
 
           <h3>Siegerehrung</h3>
@@ -205,7 +207,7 @@
             <div id="test-pos" class="test-pos"></div>
             <div class="row">
               <button type="button" class="btn small" id="btn-test-start">▶ Ab Spielstart</button>
-              <button type="button" class="btn small" id="btn-test-refrain" hidden>♪ Ab Refrain</button>
+              <button type="button" class="btn small" id="btn-test-refrain">♪ Ab Refrain</button>
               <button type="button" class="btn small" id="btn-test-zero">⏮ Ab 0:00</button>
               <button type="button" class="btn small" id="btn-test-toggle">⏸ Pause</button>
               <button type="button" class="btn small" id="btn-test-video">📺 Video zeigen</button>

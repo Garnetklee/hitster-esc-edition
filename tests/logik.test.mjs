@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   filterPool, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, relRank, hasVideo, overlapPx, fmtDuration, heatMatrix, heatValue, searchSongs,
-  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, refrainArt, REFRAIN_PAUSCHAL, playerFilter, handicapLabel,
   canStillCatchUp, maxTurnPoints, podiumHeight, volumeLocked,
 } from '../app/js/data.js';
 import {
@@ -19,7 +19,7 @@ const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v)
 const songs = raw.songs.map((s) => ({
   ...s, jahr: num(s.jahr), platz: num(s.platz), teilnehmer: num(s.teilnehmer), punkte: num(s.punkte),
   platz_finale: num(s.platz_finale), land_iso: s.land_iso.toUpperCase(), sonderfall: s.sonderfall || '',
-  refrain_sek: num(s.refrain_sek), runde_ende: s.runde_ende || '', sieger: s.sieger === true || s.sieger === 'ja', youtube_id: (s.youtube_id || '').trim(), embed_ok: s.embed_ok === 'nein' ? false : true,
+  refrain_sek: num(s.refrain_sek), refrain_schaetz_sek: num(s.refrain_schaetz_sek), runde_ende: s.runde_ende || '', sieger: s.sieger === true || s.sieger === 'ja', youtube_id: (s.youtube_id || '').trim(), embed_ok: s.embed_ok === 'nein' ? false : true,
 }));
 const byId = (id) => songs.find((s) => s.id === id);
 const FILTER = { mode: 'alle', from: 1956, to: 2026, countries: [] };
@@ -328,15 +328,39 @@ test('Spielverlauf: Eintrag übernimmt Rangliste, Modus und Pool-Namen', () => {
   assert.deepEqual(e.spieler[1], { name: 'B', platz: 2, karten: 7, tokens: 0.5, zeit: 0 });
 });
 
-test('Refrain-Start: nur mit Schalter und nur hinter dem Spielstart', () => {
-  const mit = songs.filter((s) => s.refrain_sek);
-  assert.ok(mit.length > 600, `${mit.length} Refrains`);
-  for (const s of mit) assert.ok(s.refrain_sek > (s.start_sek || 0), s.id);
-  const s = mit[0];
-  assert.equal(songStart(s, true), s.refrain_sek);
-  assert.equal(songStart(s, false), s.start_sek || 0);
-  const ohne = songs.find((x) => x.jahr < 2000 && !x.refrain_sek && !IKONEN.has(x.id));
-  assert.equal(songStart(ohne, true), ohne.start_sek || 0);
+test('Refrain-Start: Sicher, Schätzung oder pauschal, nie am Spielstart', () => {
+  for (const s of songs) assert.ok(songStart(s, true) > (s.start_sek || 0), s.id);
+  const mk = (o) => ({ start_sek: 5, refrain_sek: null, refrain_schaetz_sek: null, ...o });
+  assert.equal(songStart(mk({}), true), 5 + REFRAIN_PAUSCHAL);
+  assert.equal(songStart(mk({}), true), 50);
+  assert.equal(songStart(mk({ refrain_schaetz_sek: 30 }), true), 30);
+  assert.equal(songStart(mk({ refrain_sek: 60, refrain_schaetz_sek: 30 }), true), 60);
+  assert.equal(songStart(mk({ refrain_sek: 3, refrain_schaetz_sek: 30 }), true), 30);
+  assert.equal(songStart(mk({ refrain_sek: 60 }), false), 5);
+  assert.equal(songStart(mk({}), false), 5);
+  assert.equal(refrainArt(mk({})), 'pauschal');
+  assert.equal(refrainArt(mk({ refrain_schaetz_sek: 30 })), 'schaetzung');
+  assert.equal(refrainArt(mk({ refrain_sek: 60, refrain_schaetz_sek: 30 })), 'sicher');
+});
+
+test('Refrain-Start: nur sichere Refrains filtern Pool und Handicap-Pool', () => {
+  const sicher = (s) => s.refrain_sek > (s.start_sek || 0);
+  const f = { ...FILTER, nurSicherRefrain: true };
+  const pool = filterPool(songs, f, true);
+  assert.ok(pool.length > 0 && pool.length < songs.length);
+  for (const s of pool) assert.ok(sicher(s), s.id);
+  assert.equal(filterPool(songs, FILTER, true).length, songs.length);
+  const hc = { mode: 'top10', topN: 100, decadeN: 15, from: 2000, to: 2026 };
+  const own = filterPool(songs, playerFilter(f, hc), true);
+  assert.ok(own.length > 0);
+  for (const s of own) assert.ok(sicher(s) && s.jahr >= 2000, s.id);
+});
+
+test('Refrain-Start: echte Daten (nach dem Export)', () => {
+  assert.equal(byId('2014-GE').refrain_sek, 78);
+  assert.equal(byId('2010-DE').refrain_sek, 43);
+  assert.equal(byId('2022-UA').refrain_schaetz_sek, 51);
+  assert.equal(songStart(byId('2022-UA'), true), 51);
 });
 
 test('Handicap: eigener Pool und Zeitraum, Länder bleiben gemeinsam', () => {
@@ -364,6 +388,20 @@ test('Migration v6: Refrain, Siegermusik und Handicaps ergänzen alte Stände', 
   });
   assert.equal(saved.settings.refrain, false);
   assert.equal(saved.players[0].handicap, null);
+});
+
+test('Migration v7: Nur sichere Refrains fehlt in alten Ständen und ist dann aus', () => {
+  const m = migrateSettings({ v: 6, rules: { ...DEFAULT_RULES }, refrain: true, filter: { mode: 'alle' } });
+  assert.equal(m.v, SETTINGS_VERSION);
+  assert.equal(m.refrain, true);
+  assert.equal(m.refrainSicher, false);
+  assert.equal(m.filter.nurSicherRefrain, false);
+  assert.equal(migrateSettings({ v: 6, rules: { ...DEFAULT_RULES } }).refrainSicher, false);
+  const saved = migrateState({
+    settings: { rules: { ...DEFAULT_RULES }, filter: { mode: 'alle' } }, players: [{ name: 'A', timeline: [], tokens: 2, bonusCards: 0, freeSkips: 1, wrong: [], time: 0 }], cur: null,
+  });
+  assert.equal(saved.settings.refrainSicher, false);
+  assert.equal(saved.settings.filter.nurSicherRefrain, false);
 });
 
 /* ------------------------------------------------------------------ Modi: Higher Lower und Streaming ranken */

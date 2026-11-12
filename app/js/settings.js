@@ -1,6 +1,6 @@
 // Spielregeln, fertige Modi und Migration gespeicherter Stände (ohne DOM)
 
-export const SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = 7;
 export const CONVERT_TARGETS = [3, 4, 5, 6, 8, 10];
 export const TIME_LIMITS = [0, 15, 20, 30, 45, 60];
 export const TARGET_CHOICES = [3, 5, 7, 10, 15];
@@ -94,6 +94,8 @@ export function migrateSettings(st) {
     v: SETTINGS_VERSION,
     trackTime: !!st.trackTime,
     refrain: !!st.refrain,
+    refrainSicher: !!st.refrainSicher,
+    filter: st.filter ? { ...st.filter, nurSicherRefrain: !!st.filter.nurSicherRefrain } : st.filter,
     endFull: !!st.endFull,
     handicaps: Array.isArray(st.handicaps) ? st.handicaps : [],
     rules: classic ? { ...presetById(DEFAULT_PRESET).rules } : upgradeRules(old),
@@ -118,6 +120,8 @@ export function migrateState(saved) {
   saved.first = saved.first ?? 0;
   set.trackTime = !!set.trackTime;
   set.refrain = !!set.refrain;
+  set.refrainSicher = !!set.refrainSicher;
+  if (set.filter) set.filter.nurSicherRefrain = !!set.filter.nurSicherRefrain;
   set.endFull = !!set.endFull;
   for (const p of saved.players) {
     p.handicap = p.handicap ?? null;

@@ -3,7 +3,7 @@ import {
   loadSongs, filterPool, fitsGap, sortedIndex, relRank, placementText, shuffle, pickRandom, MAX_ERROR_SERIES, giveBackSongs,
   QUICK_COUNTRIES, hasVideo, isCancelled, placeTokens, yearTokens, neighborTokens, tokenPoints, applyTokens, skipCost, renewCost,
   fmtTokens, tokenLabel, suggest, countryStats, matchCountry, matchText, countryOptions, overlapPx, fmtDuration, heatMatrix, searchSongs,
-  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, playerFilter, handicapLabel,
+  overviewStats, entriesOfYear, entriesOfCountry, historyEntry, songStart, refrainArt, REFRAIN_PAUSCHAL, playerFilter, handicapLabel,
   canStillCatchUp, podiumHeight, volumeLocked,
 } from './data.js';
 import * as YTP from './player.js';
@@ -112,6 +112,7 @@ function readFilter() {
     to: parseInt($('#inp-to').value, 10) || setup.maxYear,
     toMax: (parseInt($('#inp-to').value, 10) || setup.maxYear) >= setup.maxYear,
     countries: [...setup.countries],
+    nurSicherRefrain: $('#chk-refrain').checked && $('#chk-refrain-sicher').checked,
   };
 }
 
@@ -270,8 +271,13 @@ function updateCount() {
   const f = readFilter();
   const list = filterPool(DATA.songs, f, DEV);
   const n = list.length;
-  const withRefrain = list.filter((s) => songStart(s, true) !== songStart(s)).length;
-  $('#refrain-hint').textContent = `Im aktuellen Pool haben ${withRefrain} von ${n} Liedern einen erkannten Refrain.`;
+  const art = { sicher: 0, schaetzung: 0, pauschal: 0 };
+  for (const s of list) art[refrainArt(s)]++;
+  $('#row-refrain-sicher').hidden = !$('#chk-refrain').checked;
+  $('#refrain-hint').hidden = !$('#chk-refrain').checked;
+  $('#refrain-hint').textContent = f.nurSicherRefrain
+    ? `Im aktuellen Pool: ${art.sicher} Lieder mit erkanntem Refrain.`
+    : `Im aktuellen Pool: ${art.sicher} mit erkanntem Refrain, ${art.schaetzung} geschätzt, ${art.pauschal} ab ${REFRAIN_PAUSCHAL} s pauschal.`;
   const players = setup.names.length;
   const need = players + 5;
   $('#pool-count').textContent = n;
@@ -302,6 +308,7 @@ function applySettings(st) {
   $('#chk-time').checked = !!st.trackTime;
   $('#chk-endfull').checked = !!st.endFull;
   $('#chk-refrain').checked = !!st.refrain;
+  $('#chk-refrain-sicher').checked = !!st.refrainSicher;
   setup.handicaps = []; // Handicaps gelten nur für ein Spiel, neue starten mit der allgemeinen Auswahl
 }
 
@@ -461,6 +468,7 @@ function startGame() {
     trackTime: $('#chk-time').checked,
     endFull: $('#chk-endfull').checked,
     refrain: $('#chk-refrain').checked,
+    refrainSicher: $('#chk-refrain-sicher').checked,
     handicaps: names.map((_, i) => setup.handicaps[i] || null),
   };
   store.set(KEY_SETTINGS, settings);
@@ -1004,6 +1012,7 @@ function renderControls() {
     <div class="row player-row">
       <button class="btn play big" id="btn-play" ${hasAudio && !locked ? '' : 'disabled'}>${playLabel()}</button>
       <button class="btn" id="btn-restart" ${hasAudio && !locked ? '' : 'disabled'}>↺ Neu ab Start</button>
+      ${state.settings.refrain ? `<button class="btn" id="btn-zero" ${hasAudio && !locked ? '' : 'disabled'}>⏮ Ab 0:00</button>` : ''}
     </div>
     <div class="row"><button class="btn hint" id="btn-hint" ${hasAudio ? '' : 'disabled'}>💡 Hinweis: Video einblenden <small>(gratis)</small></button></div>
     ${limitBar}
@@ -1028,6 +1037,10 @@ function renderControls() {
   $('#btn-restart').onclick = () => withRenewal(() => {
     setAudioStatus('loading');
     YTP.restart();
+  });
+  if (state.settings.refrain) $('#btn-zero').onclick = () => withRenewal(() => {
+    setAudioStatus('loading');
+    YTP.playFrom(0);
   });
   $('#btn-skip').onclick = skip;
   $('#btn-other-song').onclick = () => replaceSong('Neues Lied.');
@@ -1487,7 +1500,8 @@ let musicSeeking = false;
 
 function openMusic() {
   testStop();
-  const list = shuffle(filterPool(DATA.songs, readFilter(), DEV).filter(hasVideo));
+  // „Nur sichere Refrains“ betrifft nur das Spiel, die Musik spielt ohnehin von vorn
+  const list = shuffle(filterPool(DATA.songs, { ...readFilter(), nurSicherRefrain: false }, DEV).filter(hasVideo));
   if (!list.length) { toast('Keine Lieder mit Video in dieser Auswahl.'); return; }
   music = { list, i: 0, status: 'idle', errors: 0 };
   showScreen('music');
@@ -1618,8 +1632,7 @@ function testPlay(from) {
 function testPick(s) {
   testSong = s;
   $('#test-box').hidden = false;
-  $('#test-info').innerHTML = `<b>${esc(s.titel)}</b> · ${esc(s.interpret)}<div class="muted small">${esc(s.land)} ${s.jahr} · Id ${esc(s.id)} · Spielstart bei ${s.start_sek || 0} s${songStart(s, true) !== songStart(s) ? ` · Refrain bei ${s.refrain_sek} s` : ''}</div>`;
-  $('#btn-test-refrain').hidden = songStart(s, true) === songStart(s);
+  $('#test-info').innerHTML = `<b>${esc(s.titel)}</b> · ${esc(s.interpret)}<div class="muted small">${esc(s.land)} ${s.jahr} · Id ${esc(s.id)} · Spielstart bei ${s.start_sek || 0} s${' · ' + { sicher: 'Refrain bei', schaetzung: 'Schätzung bei', pauschal: 'pauschal ab' }[refrainArt(s)]} ${songStart(s, true)} s</div>`;
   testPlay(s.start_sek || 0);
   testTick();
 }

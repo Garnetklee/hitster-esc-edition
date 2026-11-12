@@ -115,6 +115,16 @@ export function restart() {
   return true;
 }
 
+/** Spielt ab einer beliebigen Sekunde, z. B. ab 0:00 trotz gespeichertem Start. */
+export function playFrom(sec) {
+  if (!ready || !current) return false;
+  userRequested = true;
+  player.seekTo(sec, true);
+  player.playVideo();
+  armTimer();
+  return true;
+}
+
 export function stop() {
   clearTimer();
   pending = null;

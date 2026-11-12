@@ -32,6 +32,7 @@ function normalize(s) {
     youtube_id: (s.youtube_id || '').trim(),
     start_sek: num(s.start_sek) || 0,
     refrain_sek: num(s.refrain_sek),
+    refrain_schaetz_sek: num(s.refrain_schaetz_sek),
     embed_ok: bool(s.embed_ok),
     pop_rang: num(s.pop_rang),
   };
@@ -66,6 +67,7 @@ export function filterPool(songs, f, dev = false) {
     if (f.from && s.jahr < f.from) return false;
     if (f.to && s.jahr > f.to) return false;
     if (countries && !countries.has(s.land_iso)) return false;
+    if (f.nurSicherRefrain && !(s.refrain_sek > (s.start_sek || 0))) return false;
     switch (f.mode) {
       case 'finale': return s.runde_ende === 'Finale';
       case 'top10': return s.platz_finale !== null && s.platz_finale <= 10;
@@ -81,10 +83,26 @@ export function filterPool(songs, f, dev = false) {
   return f.mode === 'jahrzehnt' ? topPerDecade(base, f.decadeN || 15) : base;
 }
 
-/** Startpunkt im Video: mit „am Refrain starten“ der Refrain, falls bekannt und hinter dem Spielstart. */
+/** Sekunden nach dem Spielstart, an denen Lieder ohne erkannten Refrain pauschal beginnen. */
+export const REFRAIN_PAUSCHAL = 45;
+
+/** Woher der Refrain-Start eines Liedes kommt: geprüft, geschätzt oder pauschal. */
+export function refrainArt(s) {
+  const start = s.start_sek || 0;
+  if (s.refrain_sek > start) return 'sicher';
+  if (s.refrain_schaetz_sek > start) return 'schaetzung';
+  return 'pauschal';
+}
+
+/** Startpunkt im Video: mit „am Refrain starten“ der Refrain (geprüft, geschätzt oder pauschal), sonst der Spielstart. */
 export function songStart(s, refrain = false) {
   const start = s.start_sek || 0;
-  return refrain && s.refrain_sek > start ? s.refrain_sek : start;
+  if (!refrain) return start;
+  switch (refrainArt(s)) {
+    case 'sicher': return s.refrain_sek;
+    case 'schaetzung': return s.refrain_schaetz_sek;
+    default: return start + REFRAIN_PAUSCHAL;
+  }
 }
 
 /** Filter eines Spielers: Handicap ersetzt Pool und Zeitraum, die Länderauswahl gilt für alle. */

@@ -1,6 +1,9 @@
 """esc_songs.csv + Caches + intro_whisper.csv + overrides.csv -> esc_songs.json (für die App).
 
-Dazu kommt refrain_sek aus data/refrain.csv (12_find_refrain.py), nur wenn das Video noch dasselbe ist.
+Dazu kommt refrain_sek aus drei Dateien, spätere überschreiben frühere: data/refrain.csv (Whisper, 12_find_refrain.py),
+data/refrain_songformer.csv (SongFormer und Online-Recherche, 13_songformer_refrain.py) und data/refrain_manuell.csv
+(von Hand gehört). Jeweils nur, wenn das Video noch dasselbe ist und der Wert hinter dem Spielstart liegt.
+refrain_schaetz_sek aus data/refrain_schaetzung.csv gibt es nur für Lieder ohne refrain_sek (unsichere Schätzung).
 
 Reihenfolge: CSV lesen -> YouTube-/Link-/Popularitäts-Caches anwenden (common.apply_caches)
 -> overrides.csv (id;feld;wert;grund) zuletzt anwenden -> Typen umwandeln -> JSON.
@@ -68,22 +71,36 @@ def main():
             n_ov += 1
     songs = [{k: conv(k, r.get(k, "")) for k in COLS} for r in rows]
     # Refrain-Start nur, wenn er zum aktuellen Video gehört und hinter dem Spielstart liegt
-    refrain = DATA / "refrain.csv"
-    n_rf = 0
-    if refrain.exists():
-        rf = {o["id"]: o for o in csv.DictReader(refrain.open(encoding="utf-8-sig"), delimiter=";")}
-        for s in songs:
-            o = rf.get(s["id"])
-            sek = conv("start_sek", o["refrain_sek"]) if o and o["youtube_id"] == s["youtube_id"] else None
-            s["refrain_sek"] = sek if sek and sek > (s["start_sek"] or 0) else None
-            n_rf += s["refrain_sek"] is not None
+    def lese(name):
+        p = DATA / name
+        return {o["id"]: o for o in csv.DictReader(p.open(encoding="utf-8-sig"), delimiter=";")} if p.exists() else {}
+
+    def treffer(quelle, s, feld):
+        o = quelle.get(s["id"])
+        sek = conv("start_sek", o[feld]) if o and o["youtube_id"] == s["youtube_id"] else None
+        return sek if sek and sek > (s["start_sek"] or 0) else None
+
+    quellen = [lese("refrain.csv"), lese("refrain_songformer.csv"), lese("refrain_manuell.csv")]
+    schaetzung = lese("refrain_schaetzung.csv")
+    je_quelle, n_sch = [0, 0, 0], 0
+    for s in songs:
+        s["refrain_sek"], herkunft = None, None
+        for k, q in enumerate(quellen):
+            sek = treffer(q, s, "refrain_sek")
+            if sek:
+                s["refrain_sek"], herkunft = sek, k
+        if herkunft is not None:
+            je_quelle[herkunft] += 1
+        s["refrain_schaetz_sek"] = None if s["refrain_sek"] else treffer(schaetzung, s, "refrain_schaetz_sek")
+        n_sch += s["refrain_schaetz_sek"] is not None
+    n_rf = sum(je_quelle)
     out = {"generiert": datetime.now().isoformat(timespec="seconds"), "anzahl": len(songs), "songs": songs}
     txt = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
     (DATA / "esc_songs.json").write_text(txt, encoding="utf-8")
     (ESC / "app" / "data").mkdir(parents=True, exist_ok=True)
     shutil.copy(DATA / "esc_songs.json", ESC / "app" / "data" / "esc_songs.json")
     spielbar = sum(1 for s in songs if s["youtube_id"] and s["embed_ok"] is not False)
-    print(f"{len(songs)} Beiträge, {n_wh} Whisper-Starts, {n_rf} Refrains, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
+    print(f"{len(songs)} Beiträge, {n_wh} Whisper-Starts, {n_rf} Refrains (Whisper {je_quelle[0]}, SongFormer/online {je_quelle[1]}, manuell {je_quelle[2]}), {n_sch} Schätzungen, {n_ov} Overrides, {spielbar} spielbar (youtube_id, nicht als nicht einbettbar markiert)")
 
 
 if __name__ == "__main__":
